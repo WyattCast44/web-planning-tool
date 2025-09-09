@@ -8,12 +8,9 @@ function App() {
   return (
     <div className="bg-[#070a12] min-h-screen text-white bg-grid p-2">
       <SixPack />
+      <SatcomAssessor />
       <LengthConversion />
       <SpeedConversion />
-      <SatcomAssessor />
-      <div className="h-[3000px]">
-      
-      </div>
     </div>
   );
 }
