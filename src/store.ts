@@ -173,10 +173,10 @@ useAppStore.subscribe(function (state, prevState) {
 });
 
 setAltKft(30);
-setHdgDegCardinal(270);
-setKeas(150);
+setHdgDegCardinal(360);
+setKeas(170);
 setTgtElevKft(3.1);
-setWindDegCardinal(300);
+setWindDegCardinal(270);
 setWindKts(30);
 
 export default useAppStore;
