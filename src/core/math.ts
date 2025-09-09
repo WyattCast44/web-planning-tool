@@ -115,43 +115,56 @@ export function transformECEFToENU(
 }
 
 /**
- * Calculates the elevation from the antenna to the satellite
- *
- * Positive elevation means the satellite is above the horizon
- * Negative elevation means the satellite is below the horizon
+ * Calculates the pointing attitude from the antenna to the satellite
  *
  * @param lat_deg latitude in degrees
  * @param lon_deg longitude in degrees
  * @param satLon_deg satellite longitude in degrees
  * @param alt_m antenna height in meters
- *
- * @returns elevation in degrees
+ * @param hdg_deg heading in degrees
+ * @returns { elevDeg: number; azRelDeg: number; azTrueDeg: number }
  */
-export function calculateElevationFromAntennaToSatellite(
+export function calculatePointingAttitudeFromAntennaToSatellite(
   lat_deg: number,
   lon_deg: number,
   satLon_deg: number,
-  alt_m: number
-): number {
+  alt_m: number,
+  hdg_deg: number
+): {
+  elevDeg: number;
+  azRelDeg: number;
+  azTrueDeg: number;
+} {
   const lat = degToRad(lat_deg);
   const lon = degToRad(lon_deg);
   const satLon = degToRad(satLon_deg);
+  const altM = alt_m;
+  const hdgDeg = hdg_deg;
 
-  // Observer position (with actual altitude)
-  const obs = transformGeodeticToECEF(lat, lon, alt_m);
-
-  // Satellite position (at geostationary altitude)
+  const obs = transformGeodeticToECEF(lat, lon, altM);
   const sat = {
     x: EARTH_GEOSTATIONARY_RADIUS * Math.cos(satLon),
     y: EARTH_GEOSTATIONARY_RADIUS * Math.sin(satLon),
     z: 0,
   };
 
-  const dx = sat.x - obs.x;
-  const dy = sat.y - obs.y;
-  const dz = sat.z - obs.z;
-  const enu = transformECEFToENU(lat, lon, dx, dy, dz);
-  return radToDeg(Math.atan2(enu.u, Math.hypot(enu.e, enu.n)));
+  const enu = transformECEFToENU(
+    lat,
+    lon,
+    sat.x - obs.x,
+    sat.y - obs.y,
+    sat.z - obs.z
+  );
+
+  const azTrue = normalize360(radToDeg(Math.atan2(enu.e, enu.n))); // 0°=N, CW
+  const azRel = wrap180(azTrue - hdgDeg);
+  const elevation = radToDeg(Math.atan2(enu.u, Math.hypot(enu.e, enu.n)));
+
+  return {
+    elevDeg: elevation,
+    azRelDeg: azRel,
+    azTrueDeg: azTrue,
+  };
 }
 
 /**
