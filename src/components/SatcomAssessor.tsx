@@ -5,9 +5,42 @@ import {
 } from "../core/math";
 import { ftToM } from "../core/conversions";
 import { Panel } from "./Panel";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useAppStore } from "../store";
 import earth from "../assets/earth.jpg";
+
+// Constants for better maintainability
+const COMPASS_CONFIG = {
+  TRIANGLE_HEIGHT: 18,
+  TRIANGLE_WIDTH: 12,
+  RADIUS_OFFSET: 24,
+  FONT_SIZE: 8,
+  MARKER_RADIUS: 5,
+} as const;
+
+const MAP_CONFIG = {
+  TRIANGLE_HEIGHT: 8,
+  TRIANGLE_WIDTH: 6,
+  MARKER_RADIUS: 4,
+  FONT_SIZE: 8,
+} as const;
+
+const COLORS = {
+  AIRCRAFT: "rgba(56,189,248,.7)",
+  AIRCRAFT_STROKE: "rgba(56,189,248,.9)",
+  SATELLITE_VISIBLE: "rgba(16,185,129,.95)",
+  SATELLITE_HIDDEN: "rgba(239,68,68,.95)",
+  LINK_VISIBLE: "rgba(16,185,129,.5)",
+  LINK_HIDDEN: "rgba(239,68,68,.5)",
+  TEXT: "rgba(200,255,255,.75)",
+  GRID: "rgba(0,0,0,.35)",
+} as const;
+
+// Input validation
+const validateCoordinates = (lat: number, lon: number) => {
+  if (lat < -90 || lat > 90) throw new Error('Invalid latitude: must be between -90 and 90');
+  if (lon < -180 || lon > 180) throw new Error('Invalid longitude: must be between -180 and 180');
+};
 
 export function SatcomAssessor() {
   const { hdgDegCardinal, altKft } = useAppStore();
@@ -16,14 +49,24 @@ export function SatcomAssessor() {
   const [acLongitude, setAcLongitude] = useState(0);
   const [satLongitude, setSatLongitude] = useState(0);
 
-  const { azTrueDeg, azRelDeg, elevDeg } =
-    calculatePointingAttitudeFromAntennaToSatellite(
-      acLatitude,
-      acLongitude,
-      satLongitude,
-      ftToM(altKft * 1000),
-      hdgDegCardinal
-    );
+  // Memoize expensive calculations
+  const pointingData = useMemo(() => {
+    try {
+      validateCoordinates(acLatitude, acLongitude);
+      return calculatePointingAttitudeFromAntennaToSatellite(
+        acLatitude,
+        acLongitude,
+        satLongitude,
+        ftToM(altKft * 1000),
+        hdgDegCardinal
+      );
+    } catch (error) {
+      console.warn('Invalid coordinates:', error);
+      return { azTrueDeg: 0, azRelDeg: 0, elevDeg: -90 };
+    }
+  }, [acLatitude, acLongitude, satLongitude, altKft, hdgDegCardinal]);
+
+  const { azTrueDeg, azRelDeg, elevDeg } = pointingData;
 
   return (
     <Panel className="overflow-hidden max-w-xl min-w-md mx-auto my-3">
@@ -125,12 +168,13 @@ function CompassScope({
     hdg: number
   ) {
     const NS = "http://www.w3.org/2000/svg";
-    const w = compassScopeSvg.clientWidth;
-    const h = compassScopeSvg.clientHeight;
+    // Add fallback dimensions to prevent rendering issues
+    const w = Math.max(compassScopeSvg.clientWidth, 200);
+    const h = Math.max(compassScopeSvg.clientHeight, 200);
     compassScopeSvg.innerHTML = "";
     const cx = w / 2;
     const cy = h / 2;
-    const R = Math.min(w, h) / 2 - 24;
+    const R = Math.min(w, h) / 2 - COMPASS_CONFIG.RADIUS_OFFSET;
 
     // background
     const bg = document.createElementNS(NS, "circle");
@@ -208,8 +252,8 @@ function CompassScope({
 
     // center triangle pointing to heading
     const aH = degToRad(90 - hdg);
-    const triangleHeight = 18; // total height of the triangle
-    const triangleWidth = 12; // total width of the triangle base
+    const triangleHeight = COMPASS_CONFIG.TRIANGLE_HEIGHT;
+    const triangleWidth = COMPASS_CONFIG.TRIANGLE_WIDTH;
 
     // For an isosceles triangle, the centroid is 1/3 of the height from the base
     // So we need to offset the triangle so its centroid is at the compass center
@@ -245,8 +289,8 @@ function CompassScope({
       "d",
       `M${tipX},${tipY} L${leftX},${leftY} L${rightX},${rightY} Z`
     );
-    triangle.setAttribute("fill", "rgba(56,189,248,.7)");
-    triangle.setAttribute("stroke", "rgba(56,189,248,.9)");
+    triangle.setAttribute("fill", COLORS.AIRCRAFT);
+    triangle.setAttribute("stroke", COLORS.AIRCRAFT_STROKE);
     triangle.setAttribute("stroke-width", "1");
     compassScopeSvg.appendChild(triangle);
 
@@ -258,7 +302,7 @@ function CompassScope({
     const t = document.createElementNS(NS, "text");
     t.setAttribute("x", x.toString());
     t.setAttribute("y", (y - 7).toString());
-    t.setAttribute("fill", "rgba(200,255,255,.75)");
+    t.setAttribute("fill", COLORS.TEXT);
     t.setAttribute("font-size", "6");
     t.setAttribute("text-anchor", "middle");
     t.textContent = round(elev, 0).toString() + "°";
@@ -268,9 +312,9 @@ function CompassScope({
     const ray = document.createElementNS(NS, "path");
     ray.setAttribute("d", `M${cx},${cy} L${x},${y}`);
     if (elev > 0) {
-      ray.setAttribute("stroke", "rgba(16,185,129,.5)");
+      ray.setAttribute("stroke", COLORS.LINK_VISIBLE);
     } else {
-      ray.setAttribute("stroke", "rgba(239,68,68,.5)");
+      ray.setAttribute("stroke", COLORS.LINK_HIDDEN);
       ray.setAttribute("stroke-dasharray", "2 2");
     }
     ray.setAttribute("stroke-width", "1.5");
@@ -281,15 +325,27 @@ function CompassScope({
     const mark = document.createElementNS(NS, "circle");
     mark.setAttribute("cx", x.toString());
     mark.setAttribute("cy", y.toString());
-    mark.setAttribute("r", "5".toString());
+    mark.setAttribute("r", COMPASS_CONFIG.MARKER_RADIUS.toString());
     mark.setAttribute(
       "fill",
-      inside ? "rgba(16,185,129,.95)" : "rgba(239,68,68,.95)"
+      inside ? COLORS.SATELLITE_VISIBLE : COLORS.SATELLITE_HIDDEN
     );
     mark.setAttribute("stroke", "white");
     mark.setAttribute("stroke-width", "1");
     compassScopeSvg.appendChild(mark);
   }
+
+  // Memoize the resize handler to prevent unnecessary re-renders
+  const handleResize = useCallback(() => {
+    if (compassScopeSvg.current) {
+      drawCompassScope(
+        compassScopeSvg.current,
+        azTrueDeg,
+        elevDeg,
+        hdgDegCardinal
+      );
+    }
+  }, [azTrueDeg, elevDeg, hdgDegCardinal]);
 
   useEffect(() => {
     if (compassScopeSvg.current) {
@@ -301,30 +357,12 @@ function CompassScope({
       );
     }
 
-    let handleResize = () => {
-      if (compassScopeSvg.current) {
-        drawCompassScope(
-          compassScopeSvg.current,
-          azTrueDeg,
-          elevDeg,
-          hdgDegCardinal
-        );
-      }
-    }
-
     window.addEventListener("resize", handleResize);
      
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [
-    azTrueDeg,
-    hdgDegCardinal,
-    elevDeg,
-    acLatitude,
-    acLongitude,
-    satLongitude,
-  ]);
+  }, [azTrueDeg, hdgDegCardinal, elevDeg, handleResize]);
 
   return (
     <div className="select-none">
@@ -360,8 +398,9 @@ function Map({
     visible: boolean,
     acHeading: number
   ) {
-    const w = mapSvg.clientWidth;
-    const h = mapSvg.clientHeight;
+    // Add fallback dimensions to prevent rendering issues
+    const w = Math.max(mapSvg.clientWidth, 300);
+    const h = Math.max(mapSvg.clientHeight, 150);
     mapSvg.innerHTML = "";
 
     const NS = "http://www.w3.org/2000/svg";
@@ -383,14 +422,14 @@ function Map({
       const y = ((90 - lat) / 180) * h;
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", `M0,${y} H${w}`);
-      p.setAttribute("stroke", "rgba(0,0,0,.35)");
+      p.setAttribute("stroke", COLORS.GRID);
       mapSvg.appendChild(p);
       const t = document.createElementNS(NS, "text");
       t.setAttribute("x", "5");
       t.setAttribute("y", (y + 3).toString());
       t.setAttribute("fill", "rgba(0,0,0,.85)");
       t.setAttribute("text-anchor", "middle");
-      t.setAttribute("font-size", "8");
+      t.setAttribute("font-size", MAP_CONFIG.FONT_SIZE.toString());
       t.textContent = lat.toString();
       mapSvg.appendChild(t);
     }
@@ -400,13 +439,13 @@ function Map({
       const x = ((lon + 180) / 360) * w;
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", `M${x},0 V${h}`);
-      p.setAttribute("stroke", "rgba(0,0,0,.35)");
+      p.setAttribute("stroke", COLORS.GRID);
       mapSvg.appendChild(p);
       const t = document.createElementNS(NS, "text");
       t.setAttribute("x", x.toString());
       t.setAttribute("y", "10");
       t.setAttribute("fill", "rgba(0,0,0,.85)");
-      t.setAttribute("font-size", "8");
+      t.setAttribute("font-size", MAP_CONFIG.FONT_SIZE.toString());
       // center the text
       t.setAttribute("text-anchor", "middle");
       t.textContent = lon.toString();
@@ -426,7 +465,7 @@ function Map({
     // and red if the link is not visible
     link.setAttribute(
       "stroke",
-      visible ? "rgba(16,185,129,.65)" : "rgba(239,68,68,.65)"
+      visible ? COLORS.LINK_VISIBLE : COLORS.LINK_HIDDEN
     );
     // if the link is visible, make it a solid line
     // if the link is not visible, make it a dashed line
@@ -442,13 +481,13 @@ function Map({
     const s = document.createElementNS(NS, "circle");
     s.setAttribute("cx", ss.x.toString());
     s.setAttribute("cy", ss.y.toString());
-    s.setAttribute("r", "4");
+    s.setAttribute("r", MAP_CONFIG.MARKER_RADIUS.toString());
     // make the fill a solid green if the link is visible
     // and a solid red if the link is not visible
     if (visible) {
-      s.setAttribute("fill", "rgba(16,185,129,.95)");
+      s.setAttribute("fill", COLORS.SATELLITE_VISIBLE);
     } else {
-      s.setAttribute("fill", "rgba(239,68,68,.95)");
+      s.setAttribute("fill", COLORS.SATELLITE_HIDDEN);
     }
     // add a white stroke
     s.setAttribute("stroke", "white");
@@ -458,8 +497,8 @@ function Map({
     const a = document.createElementNS(NS, "path");
     // aircraft marker, make it a triangle rotated to the heading
     const aH = degToRad(90 - acHeading);
-    const triangleHeight = 8; // total height of the triangle
-    const triangleWidth = 6; // total width of the triangle base
+    const triangleHeight = MAP_CONFIG.TRIANGLE_HEIGHT;
+    const triangleWidth = MAP_CONFIG.TRIANGLE_WIDTH;
 
     // For an isosceles triangle, the centroid is 1/3 of the height from the base
     // So we need to offset the triangle so its centroid is at the aircraft position
@@ -494,28 +533,30 @@ function Map({
       "d",
       `M${tipX},${tipY} L${leftX},${leftY} L${rightX},${rightY} Z`
     );
-    a.setAttribute("fill", "rgba(56,189,248,.80)");
+    a.setAttribute("fill", COLORS.AIRCRAFT);
     a.setAttribute("stroke", "rgba(0,0,0,.80)");
     a.setAttribute("stroke-width", "1");
     mapSvg.appendChild(a);
   }
+
+  // Memoize the resize handler to prevent unnecessary re-renders
+  const handleResize = useCallback(() => {
+    if (mapSvg.current) {
+      drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible, acHeading);
+    }
+  }, [acLatitude, acLongitude, satLongitude, visible, acHeading]);
 
   useEffect(() => {
     if (mapSvg.current) {
       drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible, acHeading);
     }
     
-    let handleResize = () => {
-      if (mapSvg.current) {
-        drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible, acHeading);
-      }
-    }
     window.addEventListener("resize", handleResize);
 
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [acLatitude, acLongitude, satLongitude, visible, acHeading]);
+  }, [acLatitude, acLongitude, satLongitude, visible, acHeading, handleResize]);
 
   return (
     <div className="select-none overflow-hidden">
