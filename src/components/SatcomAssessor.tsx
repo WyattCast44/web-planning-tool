@@ -93,6 +93,7 @@ export function SatcomAssessor() {
             acLongitude={acLongitude}
             satLongitude={satLongitude}
             visible={elevDeg > 0}
+            acHeading={hdgDegCardinal}
           />
         </div>
       </div>
@@ -356,7 +357,8 @@ function Map({
     acLatitude: number,
     acLongitude: number,
     satLon: number,
-    visible: boolean
+    visible: boolean,
+    acHeading: number
   ) {
     const w = mapSvg.clientWidth;
     const h = mapSvg.clientHeight;
@@ -454,14 +456,43 @@ function Map({
     mapSvg.appendChild(s);
 
     const a = document.createElementNS(NS, "path");
-    // aircraft marker, make it an triangle with all sides equal of 8
-    // the triangle should be rotated to the heading
+    // aircraft marker, make it a triangle rotated to the heading
     const aH = degToRad(90 - acHeading);
+    const triangleHeight = 8; // total height of the triangle
+    const triangleWidth = 6; // total width of the triangle base
+
+    // For an isosceles triangle, the centroid is 1/3 of the height from the base
+    // So we need to offset the triangle so its centroid is at the aircraft position
+    const centroidOffset = triangleHeight / 3; // distance from base to centroid
+
+    // Calculate triangle vertices relative to aircraft position
+    // Point 1: tip pointing to heading (forward) - 2/3 of height from centroid
+    const tipX = aircraft.x + ((triangleHeight * 2) / 3) * Math.cos(aH);
+    const tipY = aircraft.y - ((triangleHeight * 2) / 3) * Math.sin(aH);
+
+    // Point 2: left base vertex (perpendicular to heading) - 1/3 of height back from centroid
+    const leftX =
+      aircraft.x -
+      centroidOffset * Math.cos(aH) -
+      (triangleWidth / 2) * Math.cos(aH + Math.PI / 2);
+    const leftY =
+      aircraft.y +
+      centroidOffset * Math.sin(aH) +
+      (triangleWidth / 2) * Math.sin(aH + Math.PI / 2);
+
+    // Point 3: right base vertex (perpendicular to heading) - 1/3 of height back from centroid
+    const rightX =
+      aircraft.x -
+      centroidOffset * Math.cos(aH) -
+      (triangleWidth / 2) * Math.cos(aH - Math.PI / 2);
+    const rightY =
+      aircraft.y +
+      centroidOffset * Math.sin(aH) +
+      (triangleWidth / 2) * Math.sin(aH - Math.PI / 2);
+
     a.setAttribute(
       "d",
-      `M${aircraft.x - 4 * Math.cos(aH)},${aircraft.y + 4 * Math.sin(aH)} L${aircraft.x - 4 * Math.cos(aH)},${aircraft.y - 4 * Math.sin(aH)} L${
-        aircraft.x + 4
-      },${aircraft.y + 4} Z`
+      `M${tipX},${tipY} L${leftX},${leftY} L${rightX},${rightY} Z`
     );
     a.setAttribute("fill", "rgba(56,189,248,.80)");
     a.setAttribute("stroke", "rgba(0,0,0,.80)");
@@ -471,12 +502,12 @@ function Map({
 
   useEffect(() => {
     if (mapSvg.current) {
-      drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
+      drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible, acHeading);
     }
     
     let handleResize = () => {
       if (mapSvg.current) {
-        drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
+        drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible, acHeading);
       }
     }
     window.addEventListener("resize", handleResize);
@@ -484,7 +515,7 @@ function Map({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [acLatitude, acLongitude, satLongitude, visible]);
+  }, [acLatitude, acLongitude, satLongitude, visible, acHeading]);
 
   return (
     <div className="select-none overflow-hidden">
