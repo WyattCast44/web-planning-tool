@@ -7,12 +7,23 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../store";
 
 export function SatcomAssessor() {
+  const { hdgDegCardinal, altKft } = useAppStore();
+  
   const [acLatitude, setAcLatitude] = useState(0);
   const [acLongitude, setAcLongitude] = useState(0);
   const [satLongitude, setSatLongitude] = useState(0);
 
+  const { azTrueDeg, azRelDeg, elevDeg } =
+    calculatePointingAttitudeFromAntennaToSatellite(
+      acLatitude,
+      acLongitude,
+      satLongitude,
+      altKft,
+      hdgDegCardinal
+    );
+
   return (
-    <Panel className="overflow-hidden max-w-xl min-w-md mx-auto">
+    <Panel className="overflow-hidden max-w-xl min-w-md mx-auto my-3">
       <h1 className="font-display text-center py-1.5 text-sm text-red-500/80 uppercase tracking-tight select-none border-b border-gray-600">
         Satcom Assessor
       </h1>
@@ -69,9 +80,17 @@ export function SatcomAssessor() {
           acLatitude={acLatitude}
           acLongitude={acLongitude}
           satLongitude={satLongitude}
+          hdgDegCardinal={hdgDegCardinal}
+          azTrueDeg={azTrueDeg}
+          elevDeg={elevDeg}
         />
         <div className="flex-1 flex items-center justify-center overflow-hidden">
-          <Map />
+          <Map
+            acLatitude={acLatitude}
+            acLongitude={acLongitude}
+            satLongitude={satLongitude}
+            visible={elevDeg > 0}
+          />
         </div>
       </div>
     </Panel>
@@ -82,23 +101,19 @@ function CompassScope({
   acLatitude,
   acLongitude,
   satLongitude,
+  hdgDegCardinal,
+  azTrueDeg,
+  elevDeg,
 }: {
   acLatitude: number;
   acLongitude: number;
   satLongitude: number;
+  hdgDegCardinal: number;
+  azTrueDeg: number;
+  elevDeg: number;
 }) {
   const compassScopeSvg = useRef<SVGSVGElement>(null);
-  const { hdgDegCardinal, altKft } = useAppStore();
-
-  const { azTrueDeg, azRelDeg, elevDeg } =
-    calculatePointingAttitudeFromAntennaToSatellite(
-      acLatitude,
-      acLongitude,
-      satLongitude,
-      altKft,
-      hdgDegCardinal
-    );
-
+  
   function drawCompassScope(
     compassScopeSvg: SVGSVGElement,
     azTrue: number,
@@ -281,7 +296,6 @@ function CompassScope({
     });
   }, [
     azTrueDeg,
-    azRelDeg,
     hdgDegCardinal,
     elevDeg,
     acLatitude,
@@ -300,13 +314,25 @@ function CompassScope({
   );
 }
 
-function Map() {
+function Map({
+  acLatitude,
+  acLongitude,
+  satLongitude,
+  visible,
+}: {
+  acLatitude: number;
+  acLongitude: number;
+  satLongitude: number;
+  visible: boolean;
+}) {
   const mapSvg = useRef<SVGSVGElement>(null);
+
   function drawMap(
     mapSvg: SVGSVGElement,
-    lat: number,
-    lon: number,
-    satLon: number
+    acLatitude: number,
+    acLongitude: number,
+    satLon: number, 
+    visible: boolean
   ) {
     const w = mapSvg.clientWidth;
     const h = mapSvg.clientHeight;
@@ -323,18 +349,92 @@ function Map() {
     base.setAttribute("preserveAspectRatio", "none");
 
     mapSvg.appendChild(base);
+
+    // generate grid
+    for (let lat = -75; lat <= 75; lat += 15) {
+      const y = ((90 - lat) / 180) * h;
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", `M0,${y} H${w}`);
+      p.setAttribute("stroke", "rgba(0,0,0,.35)");
+      mapSvg.appendChild(p);
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", "5");
+      t.setAttribute("y", (y + 3).toString());
+      t.setAttribute("fill", "rgba(0,0,0,.85)");
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("font-size", "8");
+      t.textContent = lat.toString();
+      mapSvg.appendChild(t);
+    }
+
+    // longitude lines
+    for (let lon = -150; lon <= 150; lon += 30) {
+      const x = ((lon + 180) / 360) * w;
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", `M${x},0 V${h}`);
+      p.setAttribute("stroke", "rgba(0,0,0,.35)");
+      mapSvg.appendChild(p);
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", x.toString());
+      t.setAttribute("y", "10");
+      t.setAttribute("fill", "rgba(0,0,0,.85)");
+      t.setAttribute("font-size", "8");
+      // center the text
+      t.setAttribute("text-anchor", "middle");
+      t.textContent = lon.toString();
+      mapSvg.appendChild(t);
+
+      const proj = (lat: number, lon: number) => ({
+        x: ((lon + 180) / 360) * w,
+        y: ((90 - lat) / 180) * h,
+      });
+
+      const aircraft = proj(acLatitude, acLongitude);
+      const ss = proj(0, satLon);
+      const link = document.createElementNS(NS, "path");
+      link.setAttribute("d", `M${aircraft.x},${aircraft.y} L${ss.x},${ss.y}`);
+      // make the link a dashed line that is green if the link is visible
+      // and red if the link is not visible
+      link.setAttribute("stroke", visible ? "rgba(16,185,129,.65)" : "rgba(239,68,68,.65)");
+      link.setAttribute("stroke-dasharray", "2 2");
+      link.setAttribute("stroke-width", "2");
+      mapSvg.appendChild(link);
+
+      // aircraft marker
+      const a = document.createElementNS(NS, "rect");
+      a.setAttribute("x", (aircraft.x - 4).toString());
+      a.setAttribute("y", (aircraft.y - 4).toString());
+      a.setAttribute("width", "8");
+      a.setAttribute("height", "8");
+      // make the marker a blue rectangle
+      a.setAttribute("fill", "rgba(56,189,248,.50)");
+      // with a black border
+      a.setAttribute("stroke", "rgba(0,0,0,.50)");
+      a.setAttribute("stroke-width", "1");
+      mapSvg.appendChild(a);
+
+      // satellite marker
+      const s = document.createElementNS(NS, "rect");
+      s.setAttribute("x", (ss.x - 4).toString());
+      s.setAttribute("y", (ss.y - 4).toString());
+      s.setAttribute("width", "8");
+      s.setAttribute("height", "8");
+      // make the satellite marker a red rectangle
+      s.setAttribute("fill", "rgba(0,0,0,.35)");
+      mapSvg.appendChild(s);
+    }
   }
 
   useEffect(() => {
     if (mapSvg.current) {
-      drawMap(mapSvg.current, 0, 0, 0);
+      drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
     }
     window.addEventListener("resize", () => {
       if (mapSvg.current) {
-        drawMap(mapSvg.current, 0, 0, 0);
+        drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
       }
     });
-  }, []);
+  }, [acLatitude, acLongitude, satLongitude, visible]);
 
   return (
     <div className="select-none overflow-hidden">
