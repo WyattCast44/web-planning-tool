@@ -1,14 +1,17 @@
 import {
   calculatePointingAttitudeFromAntennaToSatellite,
   degToRad,
+  round,
 } from "../core/math";
+import { ftToM } from "../core/conversions";
 import { Panel } from "./Panel";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../store";
+import earth from "../assets/earth.jpg";
 
 export function SatcomAssessor() {
   const { hdgDegCardinal, altKft } = useAppStore();
-  
+
   const [acLatitude, setAcLatitude] = useState(0);
   const [acLongitude, setAcLongitude] = useState(0);
   const [satLongitude, setSatLongitude] = useState(0);
@@ -18,7 +21,7 @@ export function SatcomAssessor() {
       acLatitude,
       acLongitude,
       satLongitude,
-      altKft,
+      ftToM(altKft * 1000),
       hdgDegCardinal
     );
 
@@ -58,7 +61,7 @@ export function SatcomAssessor() {
             onChange={(e) => setAcLongitude(Number(e.target.value))}
           />
         </div>
-        {/* Satellite Latitude */}
+        {/* Satellite Longitude */}
         <div className="flex flex-col divide-y divide-gray-600">
           <label className="font-display" htmlFor="satLongitude">
             Sat Long &deg;
@@ -113,7 +116,7 @@ function CompassScope({
   elevDeg: number;
 }) {
   const compassScopeSvg = useRef<SVGSVGElement>(null);
-  
+
   function drawCompassScope(
     compassScopeSvg: SVGSVGElement,
     azTrue: number,
@@ -251,11 +254,24 @@ function CompassScope({
     const rSat = radiusForElev(elev);
     const x = cx + rSat * Math.cos(aT);
     const y = cy - rSat * Math.sin(aT);
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", x.toString());
+    t.setAttribute("y", (y - 7).toString());
+    t.setAttribute("fill", "rgba(200,255,255,.75)");
+    t.setAttribute("font-size", "6");
+    t.setAttribute("text-anchor", "middle");
+    t.textContent = round(elev, 0).toString() + "°";
+    compassScopeSvg.appendChild(t);
 
     // radial line
     const ray = document.createElementNS(NS, "path");
     ray.setAttribute("d", `M${cx},${cy} L${x},${y}`);
-    ray.setAttribute("stroke", "rgba(16,185,129,.5)");
+    if (elev > 0) {
+      ray.setAttribute("stroke", "rgba(16,185,129,.5)");
+    } else {
+      ray.setAttribute("stroke", "rgba(239,68,68,.5)");
+      ray.setAttribute("stroke-dasharray", "2 2");
+    }
     ray.setAttribute("stroke-width", "1.5");
     compassScopeSvg.appendChild(ray);
 
@@ -284,7 +300,7 @@ function CompassScope({
       );
     }
 
-    window.addEventListener("resize", () => {
+    let handleResize = () => {
       if (compassScopeSvg.current) {
         drawCompassScope(
           compassScopeSvg.current,
@@ -293,7 +309,13 @@ function CompassScope({
           hdgDegCardinal
         );
       }
-    });
+    }
+
+    window.addEventListener("resize", handleResize);
+     
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   }, [
     azTrueDeg,
     hdgDegCardinal,
@@ -319,11 +341,13 @@ function Map({
   acLongitude,
   satLongitude,
   visible,
+  acHeading,
 }: {
   acLatitude: number;
   acLongitude: number;
   satLongitude: number;
   visible: boolean;
+  acHeading: number;
 }) {
   const mapSvg = useRef<SVGSVGElement>(null);
 
@@ -331,7 +355,7 @@ function Map({
     mapSvg: SVGSVGElement,
     acLatitude: number,
     acLongitude: number,
-    satLon: number, 
+    satLon: number,
     visible: boolean
   ) {
     const w = mapSvg.clientWidth;
@@ -341,12 +365,14 @@ function Map({
     const NS = "http://www.w3.org/2000/svg";
 
     const base = document.createElementNS(NS, "image");
-    base.setAttribute("href", "earth.jpg");
+    base.setAttribute("href", earth);
     base.setAttribute("x", "0");
     base.setAttribute("y", "0");
     base.setAttribute("width", w.toString());
     base.setAttribute("height", h.toString());
     base.setAttribute("preserveAspectRatio", "none");
+    // apply a filter to the image to make it darker
+    base.setAttribute("filter", "brightness(0.5)");
 
     mapSvg.appendChild(base);
 
@@ -383,57 +409,81 @@ function Map({
       t.setAttribute("text-anchor", "middle");
       t.textContent = lon.toString();
       mapSvg.appendChild(t);
-
-      const proj = (lat: number, lon: number) => ({
-        x: ((lon + 180) / 360) * w,
-        y: ((90 - lat) / 180) * h,
-      });
-
-      const aircraft = proj(acLatitude, acLongitude);
-      const ss = proj(0, satLon);
-      const link = document.createElementNS(NS, "path");
-      link.setAttribute("d", `M${aircraft.x},${aircraft.y} L${ss.x},${ss.y}`);
-      // make the link a dashed line that is green if the link is visible
-      // and red if the link is not visible
-      link.setAttribute("stroke", visible ? "rgba(16,185,129,.65)" : "rgba(239,68,68,.65)");
-      link.setAttribute("stroke-dasharray", "2 2");
-      link.setAttribute("stroke-width", "2");
-      mapSvg.appendChild(link);
-
-      // aircraft marker
-      const a = document.createElementNS(NS, "rect");
-      a.setAttribute("x", (aircraft.x - 4).toString());
-      a.setAttribute("y", (aircraft.y - 4).toString());
-      a.setAttribute("width", "8");
-      a.setAttribute("height", "8");
-      // make the marker a blue rectangle
-      a.setAttribute("fill", "rgba(56,189,248,.50)");
-      // with a black border
-      a.setAttribute("stroke", "rgba(0,0,0,.50)");
-      a.setAttribute("stroke-width", "1");
-      mapSvg.appendChild(a);
-
-      // satellite marker
-      const s = document.createElementNS(NS, "rect");
-      s.setAttribute("x", (ss.x - 4).toString());
-      s.setAttribute("y", (ss.y - 4).toString());
-      s.setAttribute("width", "8");
-      s.setAttribute("height", "8");
-      // make the satellite marker a red rectangle
-      s.setAttribute("fill", "rgba(0,0,0,.35)");
-      mapSvg.appendChild(s);
     }
+
+    const proj = (lat: number, lon: number) => ({
+      x: ((lon + 180) / 360) * w,
+      y: ((90 - lat) / 180) * h,
+    });
+
+    const aircraft = proj(acLatitude, acLongitude);
+    const ss = proj(0, satLon);
+    const link = document.createElementNS(NS, "path");
+    link.setAttribute("d", `M${aircraft.x},${aircraft.y} L${ss.x},${ss.y}`);
+    // make the link a dashed line that is green if the link is visible
+    // and red if the link is not visible
+    link.setAttribute(
+      "stroke",
+      visible ? "rgba(16,185,129,.65)" : "rgba(239,68,68,.65)"
+    );
+    // if the link is visible, make it a solid line
+    // if the link is not visible, make it a dashed line
+    if (visible) {
+      link.setAttribute("stroke-dasharray", "0");
+    } else {
+      link.setAttribute("stroke-dasharray", "2 2");
+    }
+    link.setAttribute("stroke-width", "1.5");
+    mapSvg.appendChild(link);
+
+    // satellite marker, make it a circle with a radius of 4
+    const s = document.createElementNS(NS, "circle");
+    s.setAttribute("cx", ss.x.toString());
+    s.setAttribute("cy", ss.y.toString());
+    s.setAttribute("r", "4");
+    // make the fill a solid green if the link is visible
+    // and a solid red if the link is not visible
+    if (visible) {
+      s.setAttribute("fill", "rgba(16,185,129,.95)");
+    } else {
+      s.setAttribute("fill", "rgba(239,68,68,.95)");
+    }
+    // add a white stroke
+    s.setAttribute("stroke", "white");
+    s.setAttribute("stroke-width", "1");
+    mapSvg.appendChild(s);
+
+    const a = document.createElementNS(NS, "path");
+    // aircraft marker, make it an triangle with all sides equal of 8
+    // the triangle should be rotated to the heading
+    const aH = degToRad(90 - acHeading);
+    a.setAttribute(
+      "d",
+      `M${aircraft.x - 4 * Math.cos(aH)},${aircraft.y + 4 * Math.sin(aH)} L${aircraft.x - 4 * Math.cos(aH)},${aircraft.y - 4 * Math.sin(aH)} L${
+        aircraft.x + 4
+      },${aircraft.y + 4} Z`
+    );
+    a.setAttribute("fill", "rgba(56,189,248,.80)");
+    a.setAttribute("stroke", "rgba(0,0,0,.80)");
+    a.setAttribute("stroke-width", "1");
+    mapSvg.appendChild(a);
   }
 
   useEffect(() => {
     if (mapSvg.current) {
       drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
     }
-    window.addEventListener("resize", () => {
+    
+    let handleResize = () => {
       if (mapSvg.current) {
         drawMap(mapSvg.current, acLatitude, acLongitude, satLongitude, visible);
       }
-    });
+    }
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   }, [acLatitude, acLongitude, satLongitude, visible]);
 
   return (
