@@ -40,6 +40,14 @@ export function radToDeg(radians: number): number {
   return radians * (180 / Math.PI);
 }
 
+export function degCardinalToDegMath(degCardinal: number): number {
+  return 90 - degCardinal;
+}
+
+export function degMathToDegCardinal(degMath: number): number {
+  return mod(-degMath + 90, 360);
+}
+
 export function normalize360(degrees: number): number {
   return ((degrees % 360) + 360) % 360;
 }

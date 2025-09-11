@@ -157,3 +157,7 @@ export function nmihrToFpm(nmihr: number): number {
 export function nmihrToKmh(nmihr: number): number {
     return nmihr * 1.852;
 }
+
+export function nmihrToKmS(nmihr: number): number {
+    return nmihr * 0.000514444;
+}
