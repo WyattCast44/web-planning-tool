@@ -2,6 +2,7 @@ import { degCardinalToDegMath, degToRad, mod } from "../core/math";
 import { useAppStore } from "../store";
 import { Panel } from "./Panel";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTurnRadiusWorker } from "../hooks/useTurnRadiusWorker";
 
 export function WindedVector() {
   const [angleOfBank, setAngleOfBank] = useState(0);
@@ -113,6 +114,20 @@ function WindedVectorGraph({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const { hdgDegCardinal, gs, courseDegCardinal } = useAppStore();
+  const { points, isLoading, error, calculateTurnRadius } = useTurnRadiusWorker();
+
+  // Calculate turn radius using Web Worker
+  useEffect(() => {
+    calculateTurnRadius({
+      ktas: 120,
+      maxAngleOfBankDeg: 30,
+      rollRateDeg: 10,
+      currentHeading: 0,
+      windSpeed: 30,
+      windDirection: 270,
+      timeAfterTurnStarted: 10
+    });
+  }, [calculateTurnRadius]);
 
   function setupCanvas() {
     if (!canvas.current) return;
@@ -160,7 +175,7 @@ function WindedVectorGraph({
     // Draw compass background circle
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.fill();
     ctx.strokeStyle = "rgba(180,220,255,0.2)";
     ctx.lineWidth = 1;
@@ -258,8 +273,6 @@ function WindedVectorGraph({
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // draw a curved arc from hdg to course following the compass outline
-    
     
     // Normalize the angle to the shortest direction (-180 to 180)
     let normalizedAngle = windCorrectionAngle;
@@ -372,7 +385,7 @@ function WindedVectorGraph({
     const acHeadingMath = degCardinalToDegMath(acHeadingDeg);
     const triangleHeight = 20; // Height of the triangle in pixels
     const triangleWidth = 12; // Width of the triangle in pixels
-    const aircraftColor = "rgba(56,189,248,1)"; // White aircraft
+    const aircraftColor = "rgba(56,189,248,1)"; 
 
     // Convert heading to radians (0 degrees = pointing up/north)
     const aH = degToRad(acHeadingMath);
@@ -457,33 +470,110 @@ function WindedVectorGraph({
       ctx.beginPath();
       ctx.moveTo(courseLineStartX, courseLineStartY);
       ctx.lineTo(courseLineEndX, courseLineEndY);
-      // make the line a dashed line that is gray
+      // make the line a dashed line that is magenta
       ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = "rgba(150,150,150,0.9)";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,0,255,0.5)";
+      ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Draw a small arrow at the end of the course line
-      const arrowLength = 8;
-      const arrowAngle = Math.PI / 6; // 30 degrees
-
-      // Calculate arrow points
-      const arrowX1 =
-        courseLineEndX - arrowLength * Math.cos(courseRad - arrowAngle);
-      const arrowY1 =
-        courseLineEndY + arrowLength * Math.sin(courseRad - arrowAngle);
-      const arrowX2 =
-        courseLineEndX - arrowLength * Math.cos(courseRad + arrowAngle);
-      const arrowY2 =
-        courseLineEndY + arrowLength * Math.sin(courseRad + arrowAngle);
-
+      // now draw the heading line from the aircraft aligned to the heading
+      // the distance should be the same as the course line
+      let headingLineEndX = courseLineStartX + scaledDistance * Math.cos(aH);
+      let headingLineEndY = courseLineStartY - scaledDistance * Math.sin(aH);
       ctx.beginPath();
-      ctx.moveTo(courseLineEndX, courseLineEndY);
-      ctx.lineTo(arrowX1, arrowY1);
-      ctx.moveTo(courseLineEndX, courseLineEndY);
-      ctx.lineTo(arrowX2, arrowY2);
+      ctx.moveTo(courseLineStartX, courseLineStartY);
+      ctx.lineTo(headingLineEndX, headingLineEndY);
+      // make the line a dashed line that is blue the same as the aircraft
+      ctx.strokeStyle = "rgba(56,189,248,0.5)";
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
+
+    // Calculate turn radius using Web Worker - moved to component level
+
+    // Handle loading and error states
+    if (isLoading) {
+      // Draw loading indicator
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.font = "14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Calculating turn radius...", w / 2, h / 2);
+      return;
+    }
+
+    if (error) {
+      // Draw error message
+      ctx.fillStyle = "rgba(255,0,0,0.8)";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`Error: ${error}`, w / 2, h / 2);
+      return;
+    }
+
+    if (points.length === 0) {
+      return; // No points to draw
+    }
+
+    // Find the range of the points to scale them properly
+    let minX = Math.min(...points.map(p => p.x));
+    let maxX = Math.max(...points.map(p => p.x));
+    let minY = Math.min(...points.map(p => p.y));
+    let maxY = Math.max(...points.map(p => p.y));
+
+    // Scale points to fit within the grid (use 80% of grid to leave margin)
+    const gridMargin = 0.8;
+    const scaledRange = 10 * gridMargin; // 8 units instead of 10
+    const pointScaleX = (scaledRange * scaleX) / (maxX - minX);
+    const pointScaleY = (scaledRange * scaleY) / (maxY - minY);
+    const pointScale = Math.min(pointScaleX, pointScaleY); // Use smaller scale to fit both dimensions
+
+    // Draw turn path as a single line first (more efficient)
+    if (points.length > 1) {
+      ctx.beginPath();
+      let firstPoint = points[0];
+      let firstCanvasX = w / 2 + (firstPoint.x * pointScale);
+      let firstCanvasY = h / 2 - (firstPoint.y * pointScale);
+      ctx.moveTo(firstCanvasX, firstCanvasY);
+      
+      for (let i = 1; i < points.length; i++) {
+        const point = points[i];
+        const canvasX = w / 2 + (point.x * pointScale);
+        const canvasY = h / 2 - (point.y * pointScale);
+        ctx.lineTo(canvasX, canvasY);
+      }
+      
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash pattern
+    }
+
+    // Draw only key points (every 3rd point) for performance
+    for (let i = 0; i < points.length; i += 3) {
+      const point = points[i];
+      
+      // Convert nautical miles to canvas coordinates with proper scaling
+      const canvasX = w / 2 + (point.x * pointScale);
+      const canvasY = h / 2 - (point.y * pointScale); // Subtract because Y goes up in world coords
+      
+      // Only draw if point is within canvas bounds
+      if (canvasX >= 0 && canvasX <= w && canvasY >= 0 && canvasY <= h) {
+        // Draw a small circle at the point
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, 1.5, 0, 2 * Math.PI);
+        
+        // Color the points based on their position in the array (time progression)
+        const progress = i / (points.length - 1);
+        const red = Math.floor(255 * progress);
+        const green = Math.floor(255 * (1 - progress));
+        const blue = 0;
+        
+        ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, 0.9)`;
+        ctx.fill();
+      }
+    }
+
   }
 
   function handleResize() {
