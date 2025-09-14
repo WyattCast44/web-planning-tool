@@ -154,6 +154,10 @@ export function nmihrToFpm(nmihr: number): number {
     return nmihr * 101.2685;
 }
 
+export function nmihrToFtSec(nmihr: number): number {
+    return nmihr * 1.68781;
+}
+
 export function nmihrToKmh(nmihr: number): number {
     return nmihr * 1.852;
 }

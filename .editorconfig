@@ -1,0 +1,4 @@
+// change the tab size to 4 spaces for all files
+[*]
+indent_style = tab
+indent_size = 4
