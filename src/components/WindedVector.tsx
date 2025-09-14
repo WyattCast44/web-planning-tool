@@ -11,6 +11,7 @@ export function WindedVector() {
 	const [showCourse, setShowCourse] = useState(true);
 	const [showCompass, setShowCompass] = useState(true);
 	const [showOppositeTurn, setShowOppositeTurn] = useState(true);
+	const [scale, setScale] = useState(10);
 
 	return (
 		<Panel className="max-w-xl min-w-md mx-auto my-3">
@@ -35,6 +36,7 @@ export function WindedVector() {
 					turnRate={turnRate}
 					durationSeconds={durationSeconds}
 					showOppositeTurn={showOppositeTurn}
+					scale={scale}
 				/>
 				<DisplayOptions
 					showCourse={showCourse}
@@ -43,6 +45,8 @@ export function WindedVector() {
 					setShowCompass={setShowCompass}
 					showOppositeTurn={showOppositeTurn}
 					setShowOppositeTurn={setShowOppositeTurn}
+					scale={scale}
+					setScale={setScale}
 				/>
 			</div>
 		</Panel>

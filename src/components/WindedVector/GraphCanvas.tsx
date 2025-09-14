@@ -12,6 +12,7 @@ interface GraphCanvasProps {
   turnRate: number;
   durationSeconds: number;
   showOppositeTurn: boolean;
+  scale: number;
 }
 
 export function GraphCanvas({
@@ -21,6 +22,7 @@ export function GraphCanvas({
   turnRate,
   durationSeconds,
   showOppositeTurn,
+  scale,
 }: GraphCanvasProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const {
@@ -121,7 +123,7 @@ export function GraphCanvas({
     ctx.fillRect(0, 0, w, h);
 
     // Draw grid and get scaling factors
-    const { scaleX, scaleY } = drawGrid(ctx, w, h);
+    const { scaleX, scaleY } = drawGrid(ctx, w, h, scale);
 
     // Draw aircraft
     drawAircraft(ctx, w, h, acHeadingDeg);
@@ -215,6 +217,7 @@ export function GraphCanvas({
     points,
     isLoading,
     error,
+    scale,
   ]);
 
   return (

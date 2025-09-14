@@ -173,9 +173,9 @@ useAppStore.subscribe(function (state, prevState) {
 });
 
 setAltKft(30);
-setHdgDegCardinal(45);
-setKeas(120);
-setTgtElevKft(3.1);
+setHdgDegCardinal(360);
+setKeas(150);
+setTgtElevKft(3);
 setWindDegCardinal(270);
 setWindKts(30);
 

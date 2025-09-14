@@ -241,12 +241,13 @@ export function drawAircraft(
 export function drawGrid(
   ctx: CanvasRenderingContext2D,
   w: number,
-  h: number
+  h: number,
+  bounds: number
 ) {
   // config
   const majorLineColor = "rgba(255,255,255,0.45)";
   const minorLineColor = "rgba(255,255,255,0.15)";
-  const xAndYbounds = [-10, 10];
+  const xAndYbounds = [-bounds, bounds];
   const gridSpacing = 1;
 
   // draw a cartesian coordinate system with the origin at the center of the canvas

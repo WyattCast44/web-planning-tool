@@ -1,3 +1,5 @@
+import { InputField } from "../shared/InputField";
+
 interface DisplayOptionsProps {
   showCourse: boolean;
   setShowCourse: (value: boolean) => void;
@@ -5,6 +7,8 @@ interface DisplayOptionsProps {
   setShowCompass: (value: boolean) => void;
   showOppositeTurn: boolean;
   setShowOppositeTurn: (value: boolean) => void;
+  scale: number;
+  setScale: (value: number) => void;
 }
 
 export function DisplayOptions({
@@ -14,6 +18,8 @@ export function DisplayOptions({
   setShowCompass,
   showOppositeTurn,
   setShowOppositeTurn,
+  scale,
+  setScale,
 }: DisplayOptionsProps) {
   return (
     <div className="flex flex-col items-center mt-2 flex-1 gap-2 w-full">
@@ -58,6 +64,18 @@ export function DisplayOptions({
           <option value="true">Yes</option>
           <option value="false">No</option>
         </select>
+      </div>
+      <div className="flex flex-col w-full">
+        <InputField
+          id="scale"
+          label="Scale"
+          value={scale}
+          min={1}
+          max={20}
+          step={1}
+          inputClassName="border border-t-0 border-gray-600"
+          onChange={(value) => setScale(value)}
+        />
       </div>
     </div>
   );
