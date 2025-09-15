@@ -5,12 +5,16 @@ import { degCardinalToDegMath } from "../../core/math";
 import { setupCanvas, drawCompassOverlay, drawAircraft, drawGrid, drawCourseLines } from "./CanvasUtils";
 import { drawTurnPath } from "./TurnPathRenderer";
 
+type InputMode = "duration" | "headingChange";
+
 interface GraphCanvasProps {
   showCourse: boolean;
   showCompass: boolean;
   angleOfBank: number;
   turnRate: number;
   durationSeconds: number;
+  inputMode: InputMode;
+  headingChangeDeg: number;
   showOppositeTurn: boolean;
   scale: number;
 }
@@ -21,6 +25,8 @@ export function GraphCanvas({
   angleOfBank,
   turnRate,
   durationSeconds,
+  inputMode,
+  headingChangeDeg,
   showOppositeTurn,
   scale,
 }: GraphCanvasProps) {
@@ -60,6 +66,7 @@ export function GraphCanvas({
         windSpeedKts: windKts,
         gravityFtSecS2: gravityFtSecS2,
         startingPosition: { x: 0, y: 0 }, // Start at origin
+        ...(inputMode === "headingChange" && { headingChangeDeg: headingChangeDeg }),
       });
 
       setPoints(result);
@@ -77,6 +84,7 @@ export function GraphCanvas({
           windSpeedKts: windKts,
           gravityFtSecS2: gravityFtSecS2,
           startingPosition: { x: 0, y: 0 }, // Start at origin
+          ...(inputMode === "headingChange" && { headingChangeDeg: headingChangeDeg }),
         });
         setOppositePoints(oppositeResult);
       } else {
@@ -100,6 +108,8 @@ export function GraphCanvas({
     windKts,
     windDegCardinal,
     durationSeconds,
+    inputMode,
+    headingChangeDeg,
     angleOfBank,
     turnRate,
     ktas,

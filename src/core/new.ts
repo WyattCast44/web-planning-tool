@@ -9,6 +9,7 @@ export type Params = {
 
 	/**
 	 * The duration of the time to calculate the ground track for
+	 * Only used when headingChangeDeg is not provided
 	 */
 	durationSeconds: number;
 
@@ -51,6 +52,14 @@ export type Params = {
 		x: number;
 		y: number;
 	};
+
+	/**
+	 * Optional: Desired heading change in degrees
+	 * Positive = right turn, negative = left turn
+	 * When provided, algorithm calculates optimal rollout timing
+	 * and ignores durationSeconds
+	 */
+	headingChangeDeg?: number;
 };
 
 export type PointType =
@@ -103,6 +112,118 @@ interface Derivatives {
 	dAngleOfBankRateDegSec: number; // Bank angle rate
 }
 
+export type TurnPhases = {
+	rollInTimeSeconds: number;
+	sustainedTurnTimeSeconds: number;
+	rollOutTimeSeconds: number;
+	totalTimeSeconds: number;
+	targetBankAngleDeg: number;
+	turnRateDegSec: number;
+};
+
+/**
+ * Calculate the timing for each phase of a turn to achieve a specific heading change
+ */
+export function calculateTurnPhases(
+	headingChangeDeg: number,
+	ktas: number,
+	rollRateDegSec: number,
+	maxAngleOfBankDeg: number,
+	startingAngleOfBankDeg: number,
+	gravityFtSecS2: number
+): TurnPhases {
+	// Heading change is now always absolute (positive)
+	// Turn direction is inferred from the AOB sign
+	const absoluteHeadingChangeDeg = Math.abs(headingChangeDeg);
+	const turnDirection = Math.sign(maxAngleOfBankDeg);
+	
+	// The target bank angle uses the AOB sign and magnitude
+	const targetBankAngleDeg = maxAngleOfBankDeg;
+	
+	// Calculate turn rate at maximum bank
+	const ktasFtSec = nmihrToFtSec(ktas);
+	const turnRateRadSec = (gravityFtSecS2 * Math.tan(degToRad(Math.abs(maxAngleOfBankDeg)))) / ktasFtSec;
+	const turnRateDegSec = radToDeg(turnRateRadSec) * turnDirection;
+	
+	// Calculate roll-in time - ensure we're rolling in the correct direction
+	const bankAngleDifference = targetBankAngleDeg - startingAngleOfBankDeg;
+	const rollInTimeSeconds = Math.abs(bankAngleDifference) / rollRateDegSec;
+	
+	// Calculate sustained turn time using absolute heading change
+	const sustainedTurnTimeSeconds = absoluteHeadingChangeDeg / Math.abs(turnRateDegSec);
+	
+	// Calculate roll-out time (from max bank to level flight)
+	const rollOutTimeSeconds = Math.abs(targetBankAngleDeg) / rollRateDegSec;
+	
+	// Total time
+	const totalTimeSeconds = rollInTimeSeconds + sustainedTurnTimeSeconds + rollOutTimeSeconds;
+	
+	return {
+		rollInTimeSeconds,
+		sustainedTurnTimeSeconds,
+		rollOutTimeSeconds,
+		totalTimeSeconds,
+		targetBankAngleDeg,
+		turnRateDegSec
+	};
+}
+
+/**
+ * Validate that a heading change is achievable with the given aircraft parameters
+ */
+export function validateHeadingChange(
+	headingChangeDeg: number,
+	ktas: number,
+	rollRateDegSec: number,
+	maxAngleOfBankDeg: number,
+	startingAngleOfBankDeg: number,
+	gravityFtSecS2: number,
+	maxDurationSeconds: number = 360 // 5 minutes default max
+): { isValid: boolean; error?: string; turnPhases?: TurnPhases } {
+	try {
+		const turnPhases = calculateTurnPhases(
+			headingChangeDeg,
+			ktas,
+			rollRateDegSec,
+			maxAngleOfBankDeg,
+			startingAngleOfBankDeg,
+			gravityFtSecS2
+		);
+
+		// Check if the turn can be completed within reasonable time
+		if (turnPhases.totalTimeSeconds > maxDurationSeconds) {
+			return {
+				isValid: false,
+				error: `Turn would take ${turnPhases.totalTimeSeconds.toFixed(1)}s, exceeding maximum duration of ${maxDurationSeconds}s`
+			};
+		}
+
+		// Check for minimum turn radius constraints
+		const ktasFtSec = nmihrToFtSec(ktas);
+		const minTurnRadiusFt = (ktasFtSec * ktasFtSec) / (gravityFtSecS2 * Math.tan(degToRad(Math.abs(maxAngleOfBankDeg))));
+		const minTurnRadiusNmi = ftToNmi(minTurnRadiusFt);
+		
+		// Check if heading change is too small to be meaningful
+		const absoluteHeadingChange = Math.abs(headingChangeDeg);
+		if (absoluteHeadingChange < 0.1) {
+			return {
+				isValid: false,
+				error: "Heading change is too small to be meaningful (minimum 0.1 degrees)"
+			};
+		}
+
+		return {
+			isValid: true,
+			turnPhases
+		};
+	} catch (error) {
+		return {
+			isValid: false,
+			error: error instanceof Error ? error.message : "Unknown validation error"
+		};
+	}
+}
+
 export function calculateGroundTrack(params: Params): Point[] {
 	// Input validation
 	if (params.rollRateDegSec === 0) {
@@ -111,13 +232,40 @@ export function calculateGroundTrack(params: Params): Point[] {
 	if (params.ktas <= 0) {
 		throw new Error("Airspeed must be positive");
 	}
-	if (params.durationSeconds <= 0) {
-		throw new Error("Duration must be positive");
-	}
 	if (Math.abs(params.maxAngleOfBankDeg) > 89) {
 		throw new Error(
 			"Maximum bank angle must be between -89 and 89 degrees"
 		);
+	}
+
+	// Determine duration and turn phases
+	let durationSeconds: number;
+	let turnPhases: TurnPhases | null = null;
+
+	if (params.headingChangeDeg !== undefined) {
+		// Validate heading change is achievable
+		const validation = validateHeadingChange(
+			params.headingChangeDeg,
+			params.ktas,
+			params.rollRateDegSec,
+			params.maxAngleOfBankDeg,
+			params.startingAngleOfBankDeg,
+			params.gravityFtSecS2
+		);
+		
+		if (!validation.isValid) {
+			throw new Error(`Invalid heading change: ${validation.error}`);
+		}
+		
+		// Calculate turn phases for desired heading change
+		turnPhases = validation.turnPhases!;
+		durationSeconds = turnPhases.totalTimeSeconds;
+	} else {
+		// Use provided duration (backward compatibility)
+		if (params.durationSeconds <= 0) {
+			throw new Error("Duration must be positive");
+		}
+		durationSeconds = params.durationSeconds;
 	}
 
 	// Precompute constants for performance
@@ -183,25 +331,46 @@ export function calculateGroundTrack(params: Params): Point[] {
 
 	// Pre-allocate points array for better performance
 	const estimatedPoints =
-		Math.ceil(params.durationSeconds / timeIncrementSeconds) + 1;
+		Math.ceil(durationSeconds / timeIncrementSeconds) + 1;
 	let points: Point[] = new Array(estimatedPoints);
 	let pointIndex = 0;
 
-	function computeDerivatives(state: State): Derivatives {
-		let targetAngleOfBankDeg = params.maxAngleOfBankDeg;
-		// roll rate is the absolute value of the roll rate in degrees per second
-		// because the left / right bank is determined elsewhere
+	function computeDerivatives(state: State, currentTime: number): Derivatives {
+		let targetAngleOfBankDeg: number;
 		let rollRateDegSec = Math.abs(params.rollRateDegSec);
+		let dAngleOfBankRateDegSec: number;
 
-		let dAngleOfBankRateDegSec;
-
-		if (Math.abs(state.angleOfBankDeg) < Math.abs(targetAngleOfBankDeg)) {
-			// we are rolling to the target angle of bank
-			dAngleOfBankRateDegSec =
-				Math.sign(targetAngleOfBankDeg) * rollRateDegSec;
+		if (turnPhases) {
+			// Use calculated turn phases for heading change mode
+			const { rollInTimeSeconds, sustainedTurnTimeSeconds, rollOutTimeSeconds, targetBankAngleDeg } = turnPhases;
+			
+			if (currentTime < rollInTimeSeconds) {
+				// Phase 1: Rolling to max bank
+				targetAngleOfBankDeg = targetBankAngleDeg;
+				// Roll rate direction should match the direction from current to target bank
+				const bankAngleDifference = targetBankAngleDeg - state.angleOfBankDeg;
+				dAngleOfBankRateDegSec = Math.sign(bankAngleDifference) * rollRateDegSec;
+			} else if (currentTime < rollInTimeSeconds + sustainedTurnTimeSeconds) {
+				// Phase 2: Sustained turn at max bank
+				targetAngleOfBankDeg = targetBankAngleDeg;
+				dAngleOfBankRateDegSec = 0;
+			} else {
+				// Phase 3: Rolling out to level flight
+				targetAngleOfBankDeg = 0;
+				// Roll rate direction should be towards zero (opposite of current bank sign)
+				dAngleOfBankRateDegSec = -Math.sign(state.angleOfBankDeg) * rollRateDegSec;
+			}
 		} else {
-			// we are sustained at the target angle of bank
-			dAngleOfBankRateDegSec = 0;
+			// Original behavior for duration-based mode
+			targetAngleOfBankDeg = params.maxAngleOfBankDeg;
+			
+			if (Math.abs(state.angleOfBankDeg) < Math.abs(targetAngleOfBankDeg)) {
+				// we are rolling to the target angle of bank
+				dAngleOfBankRateDegSec = Math.sign(targetAngleOfBankDeg) * rollRateDegSec;
+			} else {
+				// we are sustained at the target angle of bank
+				dAngleOfBankRateDegSec = 0;
+			}
 		}
 
 		let currentAngleOfBankRad = degToRad(state.angleOfBankDeg);
@@ -233,29 +402,47 @@ export function calculateGroundTrack(params: Params): Point[] {
 		};
 	}
 
-	function determineNewPointType(currentAngleOfBankDeg: number): PointType {
+	function determineNewPointType(currentAngleOfBankDeg: number, currentTime: number): PointType {
 		const TOLERANCE = 1e-6;
-		const maxBankAbs = Math.abs(params.maxAngleOfBankDeg);
-		const currentBankAbs = Math.abs(currentAngleOfBankDeg);
+		
+		if (turnPhases) {
+			// Use calculated turn phases for heading change mode
+			const { rollInTimeSeconds, sustainedTurnTimeSeconds, rollOutTimeSeconds } = turnPhases;
+			const currentBankAbs = Math.abs(currentAngleOfBankDeg);
+			
+			if (currentTime < rollInTimeSeconds) {
+				return "rollingToMaxBank";
+			} else if (currentTime < rollInTimeSeconds + sustainedTurnTimeSeconds) {
+				return "sustainedMaxBank";
+			} else if (currentTime < rollInTimeSeconds + sustainedTurnTimeSeconds + rollOutTimeSeconds) {
+				return "rollingToZeroBank";
+			} else {
+				return "sustainedZeroBank";
+			}
+		} else {
+			// Original behavior for duration-based mode
+			const maxBankAbs = Math.abs(params.maxAngleOfBankDeg);
+			const currentBankAbs = Math.abs(currentAngleOfBankDeg);
 
-		if (currentBankAbs < maxBankAbs - TOLERANCE) {
-			return "rollingToMaxBank";
-		} else if (currentBankAbs > maxBankAbs + TOLERANCE) {
-			return "rollingToZeroBank";
-		} else if (Math.abs(currentBankAbs - maxBankAbs) <= TOLERANCE) {
-			return "sustainedMaxBank";
-		} else if (currentBankAbs <= TOLERANCE) {
-			return "sustainedZeroBank";
+			if (currentBankAbs < maxBankAbs - TOLERANCE) {
+				return "rollingToMaxBank";
+			} else if (currentBankAbs > maxBankAbs + TOLERANCE) {
+				return "rollingToZeroBank";
+			} else if (Math.abs(currentBankAbs - maxBankAbs) <= TOLERANCE) {
+				return "sustainedMaxBank";
+			} else if (currentBankAbs <= TOLERANCE) {
+				return "sustainedZeroBank";
+			}
+
+			return "end";
 		}
-
-		return "end";
 	}
 
 	let t = 0;
 
 	// now we can loop through the time increments and calculate the aircraft's position as a function of time
-	while (t < params.durationSeconds) {
-		let stepDt = Math.min(timeIncrementSeconds, params.durationSeconds - t);
+	while (t < durationSeconds) {
+		let stepDt = Math.min(timeIncrementSeconds, durationSeconds - t);
 
 		// Numerical stability check
 		if (stepDt < 1e-10) {
@@ -289,7 +476,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 		const midState4: State = { ...currentState };
 
 		// k1
-		let k1 = computeDerivatives(currentState);
+		let k1 = computeDerivatives(currentState, t);
 
 		// k2
 		midState2.x = currentState.x + 0.5 * stepDt * k1.dx;
@@ -301,7 +488,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 			0.5 * stepDt * k1.dAngleOfBankRateDegSec;
 		midState2.hdgDegCardinal =
 			currentState.hdgDegCardinal + 0.5 * stepDt * k1.dHdgRateDegSec;
-		let k2 = computeDerivatives(midState2);
+		let k2 = computeDerivatives(midState2, t + 0.5 * stepDt);
 
 		// k3
 		midState3.x = currentState.x + 0.5 * stepDt * k2.dx;
@@ -313,7 +500,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 			0.5 * stepDt * k2.dAngleOfBankRateDegSec;
 		midState3.hdgDegCardinal =
 			currentState.hdgDegCardinal + 0.5 * stepDt * k2.dHdgRateDegSec;
-		let k3 = computeDerivatives(midState3);
+		let k3 = computeDerivatives(midState3, t + 0.5 * stepDt);
 
 		// k4
 		midState4.x = currentState.x + stepDt * k3.dx;
@@ -324,7 +511,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 			currentState.angleOfBankDeg + stepDt * k3.dAngleOfBankRateDegSec;
 		midState4.hdgDegCardinal =
 			currentState.hdgDegCardinal + stepDt * k3.dHdgRateDegSec;
-		let k4 = computeDerivatives(midState4);
+		let k4 = computeDerivatives(midState4, t + stepDt);
 
 		// calculate the weighted average of k1, k2, k3, k4 using precomputed constants
 		const weightedFactor = stepDt * RK4_FACTOR;
@@ -368,7 +555,8 @@ export function calculateGroundTrack(params: Params): Point[] {
 				currentState.hdgDegCardinal + avgHdgDegCardinal
 			),
 			pointType: determineNewPointType(
-				currentState.angleOfBankDeg + avgAngleOfBankDeg
+				currentState.angleOfBankDeg + avgAngleOfBankDeg,
+				t + stepDt
 			),
 		};
 

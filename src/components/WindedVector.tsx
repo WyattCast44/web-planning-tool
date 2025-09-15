@@ -4,10 +4,14 @@ import { InputControls } from "./WindedVector/InputControls";
 import { DisplayOptions } from "./WindedVector/DisplayOptions";
 import { GraphCanvas } from "./WindedVector/GraphCanvas";
 
+type InputMode = "duration" | "headingChange";
+
 export function WindedVector() {
 	const [angleOfBank, setAngleOfBank] = useState(20);
 	const [turnRate, setTurnRate] = useState(10);
 	const [durationSeconds, setDurationSeconds] = useState(60);
+	const [inputMode, setInputMode] = useState<InputMode>("duration");
+	const [headingChangeDeg, setHeadingChangeDeg] = useState(90);
 	const [showCourse, setShowCourse] = useState(true);
 	const [showCompass, setShowCompass] = useState(true);
 	const [showOppositeTurn, setShowOppositeTurn] = useState(true);
@@ -26,6 +30,10 @@ export function WindedVector() {
 				setTurnRate={setTurnRate}
 				durationSeconds={durationSeconds}
 				setDurationSeconds={setDurationSeconds}
+				inputMode={inputMode}
+				setInputMode={setInputMode}
+				headingChangeDeg={headingChangeDeg}
+				setHeadingChangeDeg={setHeadingChangeDeg}
 			/>
 			
 			<div className="flex justify-between pr-4">
@@ -35,6 +43,8 @@ export function WindedVector() {
 					angleOfBank={angleOfBank}
 					turnRate={turnRate}
 					durationSeconds={durationSeconds}
+					inputMode={inputMode}
+					headingChangeDeg={headingChangeDeg}
 					showOppositeTurn={showOppositeTurn}
 					scale={scale}
 				/>
