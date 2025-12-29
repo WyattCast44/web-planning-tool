@@ -59,67 +59,8 @@ export function InputControls({
 
   return (
     <div>
-      {/* Range and Azimuth Controls */}
-      <div className="grid grid-cols-4 divide-x divide-gray-600">
-        <div className="flex flex-col divide-y divide-gray-600">
-          <label className="font-display" htmlFor="groundRange">
-            GND RNG
-          </label>
-          <div className="flex">
-            <input
-              type="number"
-              id="groundRange"
-              value={groundRange}
-              min={0.1}
-              max={200}
-              step={0.1}
-              className="flex-1 min-w-0"
-              onChange={(e) => setGroundRange(Number(e.target.value))}
-            />
-            <select
-              id="rangeUnit"
-              className="bg-gray-800 text-gray-300 px-1 border-l border-gray-600"
-              value={rangeUnit}
-              onChange={(e) => setRangeUnit(e.target.value as UnitKey)}
-            >
-              {Object.entries(UNITS).map(([key, spec]) => (
-                <option key={key} value={key} className="bg-gray-800 text-gray-300">
-                  {spec.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <InputField
-          id="sensorAzimuth"
-          label="REL AZ"
-          value={sensorAzimuth}
-          onChange={setSensorAzimuth}
-          min={-180}
-          max={180}
-          step={1}
-        />
-
-        <InputField
-          id="depression"
-          label="DEPR"
-          value={`${depressionDeg.toFixed(1)}°`}
-          onChange={() => {}}
-          disabled
-        />
-
-        <InputField
-          id="slantRange"
-          label={`SLANT (${UNITS[displayUnit].label})`}
-          value={slantRangeDisplay}
-          onChange={() => {}}
-          disabled
-        />
-      </div>
-
       {/* Sensor & Camera Selection */}
-      <div className="grid grid-cols-6 divide-x divide-gray-600 border-y border-gray-600">
+      <div className="grid grid-cols-6 divide-x divide-gray-600">
         {/* Sensor System (e.g., MTS-B, BLOS Pod) */}
         <div className="flex flex-col">
           <label className="font-display border-b border-gray-600" htmlFor="sensorSelect">
@@ -218,6 +159,65 @@ export function InputControls({
               ? `${(activeLens.vfov / activeZoom).toFixed(2)}°`
               : "---"
           }
+          onChange={() => {}}
+          disabled
+        />
+      </div>
+
+      {/* Range and Azimuth Controls */}
+      <div className="grid grid-cols-4 divide-x divide-gray-600 border-y border-gray-600">
+        <div className="flex flex-col divide-y divide-gray-600">
+          <label className="font-display" htmlFor="groundRange">
+            GND RNG
+          </label>
+          <div className="flex">
+            <input
+              type="number"
+              id="groundRange"
+              value={groundRange}
+              min={0.1}
+              max={200}
+              step={0.1}
+              className="flex-1 min-w-0"
+              onChange={(e) => setGroundRange(Number(e.target.value))}
+            />
+            <select
+              id="rangeUnit"
+              className="bg-gray-800 text-gray-300 px-1 border-l border-gray-600"
+              value={rangeUnit}
+              onChange={(e) => setRangeUnit(e.target.value as UnitKey)}
+            >
+              {Object.entries(UNITS).map(([key, spec]) => (
+                <option key={key} value={key} className="bg-gray-800 text-gray-300">
+                  {spec.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <InputField
+          id="sensorAzimuth"
+          label="REL AZ"
+          value={sensorAzimuth}
+          onChange={setSensorAzimuth}
+          min={-180}
+          max={180}
+          step={1}
+        />
+
+        <InputField
+          id="depression"
+          label="DEPR"
+          value={`${depressionDeg.toFixed(1)}°`}
+          onChange={() => {}}
+          disabled
+        />
+
+        <InputField
+          id="slantRange"
+          label={`SLANT (${UNITS[displayUnit].label})`}
+          value={slantRangeDisplay}
           onChange={() => {}}
           disabled
         />

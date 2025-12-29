@@ -172,7 +172,7 @@ export function SensorFootprint() {
   return (
     <Panel className="max-w-xl min-w-md mx-auto my-3">
       <header className="font-display text-center py-1.5 text-sm text-red-500/80 uppercase tracking-tight select-none border-b border-gray-600">
-        EO/IR Footprint — {config.platform}
+        EO/IR Footprint
       </header>
 
       <InputControls

@@ -30,7 +30,6 @@ export interface TurretSpec {
 }
 
 export interface SensorConfig {
-  platform: string;
   turret: TurretSpec;
   sensors: SensorSpec[];
   defaults?: {
@@ -100,7 +99,6 @@ export interface UnitSpec {
 
 // Default config if sensor-config.js is not loaded
 export const DEFAULT_CONFIG: SensorConfig = {
-  platform: "Generic",
   turret: { minAzimuth: -180, maxAzimuth: 180, minDepression: 0, maxDepression: 90 },
   sensors: [
     {
