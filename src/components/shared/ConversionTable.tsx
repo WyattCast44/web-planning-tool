@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { roundWithPadding } from "../../core/math";
 
 interface ConversionUnit {

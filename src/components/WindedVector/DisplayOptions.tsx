@@ -29,12 +29,12 @@ export function DisplayOptions({
         </label>
         <select
           id="showCourse"
-          className="border border-gray-600"
+          className="border border-gray-600 bg-gray-800 text-gray-300"
           value={showCourse ? "true" : "false"}
           onChange={(e) => setShowCourse(e.target.value === "true")}
         >
-          <option value="true">Yes</option>
-          <option value="false">No</option>
+          <option value="true" className="bg-gray-800 text-gray-300">Yes</option>
+          <option value="false" className="bg-gray-800 text-gray-300">No</option>
         </select>
       </div>
       <div className="flex flex-col w-full">
@@ -43,12 +43,12 @@ export function DisplayOptions({
         </label>
         <select
           id="showCompass"
-          className="border border-gray-600"
+          className="border border-gray-600 bg-gray-800 text-gray-300"
           value={showCompass ? "true" : "false"}
           onChange={(e) => setShowCompass(e.target.value === "true")}
         >
-          <option value="true">Yes</option>
-          <option value="false">No</option>
+          <option value="true" className="bg-gray-800 text-gray-300">Yes</option>
+          <option value="false" className="bg-gray-800 text-gray-300">No</option>
         </select>
       </div>
       <div className="flex flex-col w-full">
@@ -57,12 +57,12 @@ export function DisplayOptions({
         </label>
         <select
           id="showOppositeTurn"
-          className="border border-gray-600"
+          className="border border-gray-600 bg-gray-800 text-gray-300"
           value={showOppositeTurn ? "true" : "false"}
           onChange={(e) => setShowOppositeTurn(e.target.value === "true")}
         >
-          <option value="true">Yes</option>
-          <option value="false">No</option>
+          <option value="true" className="bg-gray-800 text-gray-300">Yes</option>
+          <option value="false" className="bg-gray-800 text-gray-300">No</option>
         </select>
       </div>
       <div className="flex flex-col w-full">

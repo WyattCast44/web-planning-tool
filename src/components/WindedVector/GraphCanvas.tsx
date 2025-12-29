@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { useAppStore } from "../../store";
-import { calculateGroundTrack, type Point } from "../../core/new";
+import { calculateGroundTrack, type Point } from "../../core/groundTrack";
 import { degCardinalToDegMath } from "../../core/math";
 import { setupCanvas, drawCompassOverlay, drawAircraft, drawGrid, drawCourseLines } from "./CanvasUtils";
 import { drawTurnPath } from "./TurnPathRenderer";

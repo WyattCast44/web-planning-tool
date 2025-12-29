@@ -1,4 +1,4 @@
-import { type Point } from "../../core/new";
+import { type Point } from "../../core/groundTrack";
 
 interface TurnPathRendererProps {
   points: Point[];
