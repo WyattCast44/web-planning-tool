@@ -5,7 +5,6 @@
  * Edit the values below to match your platform's sensor specifications.
  * 
  * STRUCTURE:
- * - platform: Aircraft/RPA identifier
  * - turret: Physical gimbal limits
  * - sensors: Array of sensor systems (e.g., MTS-B, BLOS Pod)
  *   - Each sensor has multiple cameras (EO, MWIR, SWIR, etc.)
@@ -14,8 +13,6 @@
  */
 
 window.SENSOR_CONFIG = {
-  platform: "MQ-9A",
-  
   turret: {
     // Gimbal physical limits
     minAzimuth: -180,      // degrees, negative = left of nose
@@ -182,7 +179,6 @@ window.SENSOR_CONFIG = {
  * EXAMPLE: Minimal config for a simpler system
  * 
  * window.SENSOR_CONFIG = {
- *   platform: "Simple UAV",
  *   turret: {
  *     minAzimuth: -180,
  *     maxAzimuth: 180,

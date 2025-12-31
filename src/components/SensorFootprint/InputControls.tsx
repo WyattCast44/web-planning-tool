@@ -1,14 +1,13 @@
-import { InputField } from "../shared/InputField";
-import type { SensorSpec, CameraSpec, LensSpec, UnitKey } from "./types";
-import { UNITS } from "./types";
+import type { SensorSpec, CameraSpec, LensSpec, UnitKey } from "../../types";
+import { UNITS } from "../../types";
+import type { AtmosphericCondition } from "../../core/niirs";
+import { ATMOSPHERIC_LABELS } from "../../core/niirs";
 
 interface InputControlsProps {
   groundRange: number;
   setGroundRange: (value: number) => void;
   rangeUnit: UnitKey;
   setRangeUnit: (value: UnitKey) => void;
-  sensorAzimuth: number;
-  setSensorAzimuth: (value: number) => void;
   // Sensor selection (e.g., MTS-B, BLOS Pod)
   allSensors: SensorSpec[];
   activeSensorId: string;
@@ -25,10 +24,12 @@ interface InputControlsProps {
   activeZoom: number;
   setActiveZoom: (value: number) => void;
   activeCamera: CameraSpec | undefined;
-  // Display
+  // Visibility / Atmosphere
+  atmosphere: AtmosphericCondition;
+  setAtmosphere: (value: AtmosphericCondition) => void;
+  // Outputs
   depressionDeg: number;
   slantRangeDisplay: string;
-  displayUnit: UnitKey;
 }
 
 export function InputControls({
@@ -36,8 +37,6 @@ export function InputControls({
   setGroundRange,
   rangeUnit,
   setRangeUnit,
-  sensorAzimuth,
-  setSensorAzimuth,
   allSensors,
   activeSensorId,
   setActiveSensorId,
@@ -50,17 +49,15 @@ export function InputControls({
   activeZoom,
   setActiveZoom,
   activeCamera,
+  atmosphere,
+  setAtmosphere,
   depressionDeg,
   slantRangeDisplay,
-  displayUnit,
 }: InputControlsProps) {
-  // Get active lens for FOV display
-  const activeLens = availableLenses.find((l) => l.id === activeLensId);
-
   return (
     <div>
       {/* Sensor & Camera Selection */}
-      <div className="grid grid-cols-6 divide-x divide-gray-600">
+      <div className="grid grid-cols-4 divide-x divide-gray-600">
         {/* Sensor System (e.g., MTS-B, BLOS Pod) */}
         <div className="flex flex-col">
           <label className="font-display border-b border-gray-600" htmlFor="sensorSelect">
@@ -136,35 +133,9 @@ export function InputControls({
             ))}
           </select>
         </div>
-
-        {/* HFOV Display */}
-        <InputField
-          id="hfov"
-          label="HFOV"
-          value={
-            activeLens
-              ? `${(activeLens.hfov / activeZoom).toFixed(2)}°`
-              : "---"
-          }
-          onChange={() => {}}
-          disabled
-        />
-
-        {/* VFOV Display */}
-        <InputField
-          id="vfov"
-          label="VFOV"
-          value={
-            activeLens
-              ? `${(activeLens.vfov / activeZoom).toFixed(2)}°`
-              : "---"
-          }
-          onChange={() => {}}
-          disabled
-        />
       </div>
 
-      {/* Range and Azimuth Controls */}
+      {/* Range, Visibility, and Output Controls */}
       <div className="grid grid-cols-4 divide-x divide-gray-600 border-y border-gray-600">
         <div className="flex flex-col divide-y divide-gray-600">
           <label className="font-display" htmlFor="groundRange">
@@ -178,7 +149,7 @@ export function InputControls({
               min={0.1}
               max={200}
               step={0.1}
-              className="flex-1 min-w-0"
+              className="flex-1 min-w-12"
               onChange={(e) => setGroundRange(Number(e.target.value))}
             />
             <select
@@ -196,31 +167,40 @@ export function InputControls({
           </div>
         </div>
 
-        <InputField
-          id="sensorAzimuth"
-          label="REL AZ"
-          value={sensorAzimuth}
-          onChange={setSensorAzimuth}
-          min={-180}
-          max={180}
-          step={1}
-        />
+        {/* Visibility / Atmospheric Conditions */}
+        <div className="flex flex-col divide-y divide-gray-600">
+          <label className="font-display" htmlFor="atmosphere">
+            VIS
+          </label>
+          <select
+            id="atmosphere"
+            className="border-0 flex-1 bg-gray-800 text-gray-300 text-xs"
+            value={atmosphere}
+            onChange={(e) => setAtmosphere(e.target.value as AtmosphericCondition)}
+          >
+            {(Object.keys(ATMOSPHERIC_LABELS) as AtmosphericCondition[]).map((key) => (
+              <option key={key} value={key} className="bg-gray-800 text-gray-300">
+                {ATMOSPHERIC_LABELS[key]}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <InputField
-          id="depression"
-          label="DEPR"
-          value={`${depressionDeg.toFixed(1)}°`}
-          onChange={() => {}}
-          disabled
-        />
+        {/* Depression Angle Output */}
+        <div className="flex flex-col divide-y divide-gray-600">
+          <label className="font-display">DEPR</label>
+          <div className="flex-1 flex items-center justify-center text-emerald-400 font-mono text-sm">
+            {depressionDeg.toFixed(1)}°
+          </div>
+        </div>
 
-        <InputField
-          id="slantRange"
-          label={`SLANT (${UNITS[displayUnit].label})`}
-          value={slantRangeDisplay}
-          onChange={() => {}}
-          disabled
-        />
+        {/* Slant Range Output */}
+        <div className="flex flex-col divide-y divide-gray-600">
+          <label className="font-display">SLANT ({UNITS[rangeUnit].label})</label>
+          <div className="flex-1 flex items-center justify-center text-emerald-400 font-mono text-sm">
+            {slantRangeDisplay}
+          </div>
+        </div>
       </div>
     </div>
   );

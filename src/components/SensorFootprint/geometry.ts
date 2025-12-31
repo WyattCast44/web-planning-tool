@@ -1,8 +1,18 @@
 import { degToRad, radToDeg } from "../../core/math";
-import type { GeometryResult, FootprintResult, UnitKey, Point2D } from "./types";
-import { UNITS } from "./types";
+import type { GeometryResult, FootprintResult, UnitKey, Point2D } from "../../types";
+import { UNITS } from "../../types";
 
 const EARTH_RADIUS_FT = 20902231; // feet (mean radius)
+
+/**
+ * Calculate visual horizon distance from a given altitude
+ * This is the maximum distance at which an object on the ground can be seen
+ */
+export function calculateHorizonDistance(altitudeFt: number): number {
+  // Horizon distance = sqrt(2 * R * h) where R is earth radius and h is height
+  // This gives the distance along the earth's surface to the horizon
+  return Math.sqrt(2 * EARTH_RADIUS_FT * altitudeFt);
+}
 
 /**
  * Convert from feet to specified unit
@@ -89,9 +99,11 @@ export function calculateGeometry(
 /**
  * Calculate FOV footprint corners on the ground
  * Returns 4 corners in local ENU coordinates (feet) relative to aircraft position
+ * 
+ * Note: Slant ranges to near/far edges are calculated internally from height and
+ * depression angles, not passed in, since each edge has a different slant range.
  */
 export function calculateFootprint(
-  slantRangeFt: number,
   depressionDeg: number,
   azimuthDeg: number,
   hfovDeg: number,
@@ -101,31 +113,39 @@ export function calculateFootprint(
   const azRad = degToRad(azimuthDeg);
   const hfovRad = degToRad(hfovDeg / 2);
 
-  // Calculate ranges to near and far edges of footprint
+  // Maximum practical range for footprint calculation (100nm in feet)
+  const maxRange = 100 * 6076.115;
+
+  // Calculate depression angles to near and far edges of footprint
   const depNear = depressionDeg + vfovDeg / 2;
   const depFar = depressionDeg - vfovDeg / 2;
 
-  // Prevent looking above horizon or through earth
-  if (depFar <= 0) {
-    // Far edge at or above horizon - footprint extends to infinity
-    const maxRange = 100 * 6076.115; // 100nm in feet
-    const nearRange = heightAboveTargetFt / Math.sin(degToRad(depNear));
-    const farRange = maxRange;
+  // Calculate near range (always valid since depNear > depressionDeg > 0)
+  const nearRange = Math.min(
+    heightAboveTargetFt / Math.sin(degToRad(Math.max(1, depNear))),
+    maxRange
+  );
 
-    return calculateFootprintCorners(
-      nearRange,
-      farRange,
-      azRad,
-      hfovRad,
-      depNear,
-      depFar,
-      heightAboveTargetFt
+  // Calculate far range with smooth clamping for low depression angles
+  let farRange: number;
+  if (depFar <= 1) {
+    // For very low depression angles (<=1°), cap at max range
+    // This prevents discontinuities as depression approaches horizon
+    farRange = maxRange;
+  } else if (depFar <= 5) {
+    // Gradual transition zone between 1° and 5°
+    // Blend between calculated value and max to smooth the transition
+    const calculated = heightAboveTargetFt / Math.sin(degToRad(depFar));
+    const blendFactor = (depFar - 1) / 4; // 0 at 1°, 1 at 5°
+    farRange = Math.min(calculated, maxRange + (calculated - maxRange) * blendFactor * 0.5);
+    farRange = Math.min(farRange, maxRange);
+  } else {
+    // Normal case: depression well above horizon
+    farRange = Math.min(
+      heightAboveTargetFt / Math.sin(degToRad(depFar)),
+      maxRange
     );
   }
-
-  // Normal case: both edges below horizon
-  const nearRange = heightAboveTargetFt / Math.sin(degToRad(depNear));
-  const farRange = heightAboveTargetFt / Math.sin(degToRad(depFar));
 
   return calculateFootprintCorners(
     nearRange,
@@ -134,7 +154,8 @@ export function calculateFootprint(
     hfovRad,
     depNear,
     depFar,
-    heightAboveTargetFt
+    heightAboveTargetFt,
+    depFar <= 0 // farEdgeAtHorizon
   );
 }
 
@@ -145,16 +166,23 @@ function calculateFootprintCorners(
   hfovRad: number,
   depNear: number,
   depFar: number,
-  h: number
+  h: number,
+  farEdgeAtHorizon: boolean
 ): FootprintResult {
-  // Ground distances from aircraft
-  const nearGround = h / Math.tan(degToRad(depNear));
+  // Maximum range for ground distance calculations
+  const maxGroundRange = 100 * 6076.115; // 100nm in feet
+
+  // Ground distances from aircraft (clamped to prevent extreme values)
+  const nearGround = Math.min(
+    h / Math.tan(degToRad(Math.max(1, depNear))),
+    maxGroundRange
+  );
   const farGround = Math.min(
     h / Math.tan(degToRad(Math.max(1, depFar))),
-    100 * 6076.115
+    maxGroundRange
   );
 
-  // Widths at near and far edges
+  // Widths at near and far edges (ranges already clamped in calculateFootprint)
   const nearWidth = 2 * nearRange * Math.tan(hfovRad);
   const farWidth = 2 * farRange * Math.tan(hfovRad);
 
@@ -192,6 +220,8 @@ function calculateFootprintCorners(
     farRange,
     centerGround: (nearGround + farGround) / 2,
     centerWidth: (nearWidth + farWidth) / 2,
+    farEdgeAtHorizon,
+    farEdgeDepression: depFar,
   };
 }
 

@@ -1,329 +1,430 @@
 /**
  * Sensor Footprint Canvas Utilities
- * Uses shared canvas primitives from core/canvas
+ * Footprint-centered view with auto-scaling
  */
 
-import { degToRad } from "../../core/math";
-import {
-  setupCanvas as setupCanvasBase,
-  drawAircraftSymbol,
-  drawScaleBar as drawScaleBarBase,
-  drawDashedLine,
-  drawCompassOverlay as drawCompassOverlayBase,
-} from "../../core/canvas";
-import type { DisplayFootprint, UnitKey } from "./types";
-import { UNITS } from "./types";
+import { setupCanvas as setupCanvasBase, calculateGridSpacing } from "../../core/canvas";
+import type { FootprintResult, UnitKey } from "../../types";
+import { UNITS } from "../../types";
 import { convertFromFeet, convertToFeet, formatValue } from "./geometry";
 
 // Re-export setupCanvas from shared
 export { setupCanvasBase as setupCanvas };
 
+// Canvas padding as fraction of canvas size
+const CANVAS_PADDING = 0.12;
+
+// Colors
+const COLORS = {
+  grid: {
+    major: "rgba(52, 211, 153, 0.35)",
+    minor: "rgba(52, 211, 153, 0.12)",
+    label: "rgba(52, 211, 153, 0.5)",
+  },
+  footprint: {
+    fill: "rgba(52, 211, 153, 0.15)",
+    stroke: "rgba(52, 211, 153, 0.7)",
+  },
+  target: {
+    stroke: "rgba(248, 113, 113, 0.8)",
+    fill: "rgba(248, 113, 113, 0.3)",
+  },
+  annotation: {
+    text: "rgba(156, 163, 175, 0.9)", // gray-400
+    widthNear: "rgba(52, 211, 153, 0.8)", // emerald
+    widthFar: "rgba(56, 189, 248, 0.8)", // sky
+    depth: "rgba(251, 191, 36, 0.8)", // amber
+    aspect: "rgba(167, 139, 250, 0.8)", // violet
+  },
+  warning: {
+    text: "rgba(251, 146, 60, 0.95)", // orange-400
+    bg: "rgba(251, 146, 60, 0.15)",
+    border: "rgba(251, 146, 60, 0.5)",
+    horizon: "rgba(251, 146, 60, 0.7)", // horizon line
+  },
+};
+
 // ============================================================================
-// GRID (with unit-aware scaling and axis labels)
+// AUTO-SCALE CALCULATION
 // ============================================================================
 
 /**
- * Calculate appropriate grid spacing based on scale
- * Aims for 4-10 grid lines per half of the display
+ * Calculate scale factor to fit footprint in canvas with padding
+ * Returns pixels per foot
  */
-function calculateGridSpacing(scale: number): number {
-  if (scale <= 5) return 1;
-  if (scale <= 10) return 2;
-  if (scale <= 25) return 5;
-  if (scale <= 50) return 10;
-  if (scale <= 100) return 20;
-  return 50;
+export function calculateCanvasScale(
+  footprint: FootprintResult,
+  canvasWidth: number,
+  canvasHeight: number,
+  padding: number = CANVAS_PADDING
+): number {
+  const footprintDepth = footprint.farGround - footprint.nearGround;
+  const footprintMaxWidth = Math.max(footprint.nearWidth, footprint.farWidth);
+
+  // Handle edge cases
+  if (footprintDepth <= 0 || footprintMaxWidth <= 0) {
+    return 1;
+  }
+
+  // Available canvas space (with padding)
+  const availableWidth = canvasWidth * (1 - 2 * padding);
+  const availableHeight = canvasHeight * (1 - 2 * padding);
+
+  // Calculate scale to fit both dimensions (pixels per foot)
+  const scaleX = availableWidth / footprintMaxWidth;
+  const scaleY = availableHeight / footprintDepth;
+
+  // Use the smaller scale to ensure footprint fits
+  return Math.min(scaleX, scaleY);
 }
 
+// ============================================================================
+// GRID DRAWING (footprint-centered)
+// ============================================================================
+
 /**
- * Draw grid with scale (aircraft centered) for sensor footprint display
+ * Draw grid centered on footprint
  */
-export function drawGrid(
+export function drawFootprintGrid(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
+  footprint: FootprintResult,
   scale: number,
   displayUnit: UnitKey
-): { scaleX: number; scaleY: number } {
-  const majorLineColor = "rgba(52, 211, 153, 0.35)";
-  const minorLineColor = "rgba(52, 211, 153, 0.12)";
-  const labelColor = "rgba(52, 211, 153, 0.5)";
-
+): void {
   const centerX = w / 2;
   const centerY = h / 2;
 
-  // Scale in feet for internal calculations
-  const scaleFt = convertToFeet(scale, displayUnit);
-  const scaleX = w / (2 * scaleFt);
-  const scaleY = h / (2 * scaleFt);
+  // Calculate footprint center in ground coordinates
+  const footprintCenterY = (footprint.nearGround + footprint.farGround) / 2;
 
-  // Dynamic grid spacing based on scale
-  const gridSpacing = calculateGridSpacing(scale);
+  // Calculate grid extent in feet
+  const visibleWidthFt = w / scale;
+  const visibleHeightFt = h / scale;
+
+  // Convert to display units for grid spacing calculation
+  const visibleWidthUnits = convertFromFeet(visibleWidthFt, displayUnit);
+  const gridSpacing = calculateGridSpacing(visibleWidthUnits / 2);
   const gridSpacingFt = convertToFeet(gridSpacing, displayUnit);
 
-  // Calculate number of grid lines needed (symmetric from center)
-  const numLines = Math.floor(scale / gridSpacing);
-
   // Draw minor grid lines
-  ctx.strokeStyle = minorLineColor;
+  ctx.strokeStyle = COLORS.grid.minor;
   ctx.lineWidth = 1;
 
-  // Draw grid lines symmetrically from center
-  for (let i = -numLines; i <= numLines; i++) {
-    if (i === 0) continue; // Skip center, drawn as major axis
-
+  // Vertical lines (cross-track)
+  const numVertLines = Math.ceil(visibleWidthFt / gridSpacingFt / 2);
+  for (let i = -numVertLines; i <= numVertLines; i++) {
+    if (i === 0) continue;
     const offsetFt = i * gridSpacingFt;
-
-    // Vertical line
-    const px = centerX + offsetFt * scaleX;
+    const px = centerX + offsetFt * scale;
     ctx.beginPath();
     ctx.moveTo(px, 0);
     ctx.lineTo(px, h);
     ctx.stroke();
+  }
 
-    // Horizontal line
-    const py = centerY - offsetFt * scaleY;
+  // Horizontal lines (along-track / depth)
+  const numHorizLines = Math.ceil(visibleHeightFt / gridSpacingFt / 2);
+  for (let i = -numHorizLines; i <= numHorizLines; i++) {
+    if (i === 0) continue;
+    const offsetFt = i * gridSpacingFt;
+    // Y offset from footprint center
+    const py = centerY - offsetFt * scale;
     ctx.beginPath();
     ctx.moveTo(0, py);
     ctx.lineTo(w, py);
     ctx.stroke();
   }
 
-  // Draw main axes (stronger)
-  ctx.strokeStyle = majorLineColor;
+  // Draw center axes (stronger)
+  ctx.strokeStyle = COLORS.grid.major;
   ctx.lineWidth = 1;
 
-  // Vertical axis (N-S)
+  // Vertical center line
   ctx.beginPath();
   ctx.moveTo(centerX, 0);
   ctx.lineTo(centerX, h);
   ctx.stroke();
 
-  // Horizontal axis (E-W)
+  // Horizontal center line (at footprint center)
   ctx.beginPath();
   ctx.moveTo(0, centerY);
   ctx.lineTo(w, centerY);
   ctx.stroke();
-
-  // Draw axis labels
-  ctx.font = "9px 'Roboto Mono', monospace";
-  ctx.fillStyle = labelColor;
-
-  // Draw labels symmetrically from center
-  for (let i = -numLines; i <= numLines; i++) {
-    if (i === 0) continue;
-
-    const labelVal = i * gridSpacing;
-    const offsetFt = i * gridSpacingFt;
-
-    // X-axis label (East-West)
-    const px = centerX + offsetFt * scaleX;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillText(`${labelVal}`, px, centerY + 4);
-
-    // Y-axis label (North-South)
-    const py = centerY - offsetFt * scaleY;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`${labelVal}`, w - 20, py);
-  }
-
-
-  return { scaleX, scaleY };
 }
 
 // ============================================================================
-// COMPASS OVERLAY
+// FOOTPRINT DRAWING (centered)
 // ============================================================================
 
 /**
- * Draw compass rose overlay around the edge
+ * Draw the footprint polygon centered in canvas
+ * Near edge at bottom, far edge at top
  */
-export function drawCompass(
+export function drawCenteredFootprint(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  hdgDegCardinal: number
-): void {
-  // Convert to math angle for the shared function
-  const hdgDegMath = 90 - hdgDegCardinal;
-
-  drawCompassOverlayBase(ctx, w, h, hdgDegMath, undefined, {
-    tickColor: "rgba(52, 211, 153, 0.3)",
-    labelColor: "rgba(52, 211, 153, 0.5)",
-    headingIndicatorColor: "rgba(56, 189, 248, 0.7)",
-  });
-}
-
-// ============================================================================
-// AIRCRAFT
-// ============================================================================
-
-/**
- * Draw aircraft symbol at center
- */
-export function drawAircraft(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  hdgDegCardinal: number
-): void {
-  drawAircraftSymbol(ctx, w, h, hdgDegCardinal, {
-    height: 18,
-    width: 10,
-  });
-}
-
-// ============================================================================
-// AZIMUTH LINE
-// ============================================================================
-
-/**
- * Draw sensor azimuth line from aircraft
- */
-export function drawAzimuthLine(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  hdgDegCardinal: number,
-  sensorAzimuthRel: number
-): void {
+  footprint: FootprintResult,
+  scale: number
+): { nearY: number; farY: number; nearWidth: number; farWidth: number } {
   const centerX = w / 2;
   const centerY = h / 2;
 
-  // Absolute azimuth = heading + relative azimuth
-  // Convert to math angle (0° = east, CCW positive)
-  const absAzDeg = hdgDegCardinal + sensorAzimuthRel;
-  const azDegMath = 90 - absAzDeg;
+  // Calculate footprint center in ground coordinates
+  const footprintCenterY = (footprint.nearGround + footprint.farGround) / 2;
 
-  const lineLength = Math.max(w, h);
+  // Calculate corner positions in canvas coordinates
+  // Near edge at bottom (positive Y in canvas), far edge at top (negative Y in canvas)
+  const nearOffsetY = (footprint.nearGround - footprintCenterY) * scale;
+  const farOffsetY = (footprint.farGround - footprintCenterY) * scale;
 
-  drawDashedLine(ctx, centerX, centerY, azDegMath, lineLength, "rgba(52, 211, 153, 0.3)");
-}
+  const nearY = centerY - nearOffsetY; // Near at bottom
+  const farY = centerY - farOffsetY; // Far at top
 
-// ============================================================================
-// TARGET MARKER
-// ============================================================================
+  const nearHalfWidth = (footprint.nearWidth / 2) * scale;
+  const farHalfWidth = (footprint.farWidth / 2) * scale;
 
-/**
- * Draw target marker at ground range from aircraft along azimuth
- */
-export function drawTargetMarker(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  groundRangeFt: number,
-  hdgDegCardinal: number,
-  sensorAzimuthRel: number,
-  scaleX: number,
-  scaleY: number
-): void {
-  const centerX = w / 2;
-  const centerY = h / 2;
+  const corners = [
+    { x: centerX - nearHalfWidth, y: nearY }, // nearLeft (bottom-left)
+    { x: centerX + nearHalfWidth, y: nearY }, // nearRight (bottom-right)
+    { x: centerX + farHalfWidth, y: farY }, // farRight (top-right)
+    { x: centerX - farHalfWidth, y: farY }, // farLeft (top-left)
+  ];
 
-  const absAzDeg = hdgDegCardinal + sensorAzimuthRel;
-  const azRad = degToRad(90 - absAzDeg);
-
-  const tgtX = centerX + groundRangeFt * scaleX * Math.cos(azRad);
-  const tgtY = centerY - groundRangeFt * scaleY * Math.sin(azRad);
-
-  // X marker
-  ctx.strokeStyle = "rgba(248, 113, 113, 0.6)"; // red-400
-  ctx.lineWidth = 1;
-
+  // Fill
+  ctx.fillStyle = COLORS.footprint.fill;
   ctx.beginPath();
-  ctx.moveTo(tgtX - 6, tgtY - 6);
-  ctx.lineTo(tgtX + 6, tgtY + 6);
-  ctx.moveTo(tgtX + 6, tgtY - 6);
-  ctx.lineTo(tgtX - 6, tgtY + 6);
+  ctx.moveTo(corners[0].x, corners[0].y);
+  corners.slice(1).forEach((c) => ctx.lineTo(c.x, c.y));
+  ctx.closePath();
+  ctx.fill();
+
+  // Stroke
+  ctx.strokeStyle = COLORS.footprint.stroke;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Circle
+  return {
+    nearY,
+    farY,
+    nearWidth: nearHalfWidth * 2,
+    farWidth: farHalfWidth * 2,
+  };
+}
+
+// ============================================================================
+// TARGET MARKER (footprint center)
+// ============================================================================
+
+/**
+ * Draw target crosshair at footprint center
+ */
+export function drawCenterMarker(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number
+): void {
+  const centerX = w / 2;
+  const centerY = h / 2;
+  const size = 8;
+
+  ctx.strokeStyle = COLORS.target.stroke;
+  ctx.lineWidth = 1.5;
+
+  // Crosshair
   ctx.beginPath();
-  ctx.arc(tgtX, tgtY, 4, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(248, 113, 113, 0.8)";
+  ctx.moveTo(centerX - size, centerY);
+  ctx.lineTo(centerX + size, centerY);
+  ctx.moveTo(centerX, centerY - size);
+  ctx.lineTo(centerX, centerY + size);
+  ctx.stroke();
+
+  // Small circle
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS.target.fill;
+  ctx.fill();
   ctx.stroke();
 }
 
 // ============================================================================
-// FOOTPRINTS
-// ============================================================================
-
-// Footprint colors for multi-sensor display
-const FOOTPRINT_COLORS = [
-  "rgba(52, 211, 153, 1)", // emerald-400 (primary)
-  "rgba(56, 189, 248, 1)", // sky-400
-  "rgba(251, 191, 36, 1)", // amber-400
-  "rgba(244, 114, 182, 1)", // pink-400
-  "rgba(167, 139, 250, 1)", // violet-400
-  "rgba(74, 222, 128, 1)", // green-400
-];
-
-/**
- * Draw sensor footprint polygons
- * Footprint corners are already in world ENU coordinates (absolute azimuth applied)
- */
-export function drawFootprints(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  footprints: DisplayFootprint[],
-  scaleX: number,
-  scaleY: number
-): void {
-  const centerX = w / 2;
-  const centerY = h / 2;
-
-  footprints.forEach((fp, idx) => {
-    if (!fp || !fp.footprint) return;
-
-    const color = FOOTPRINT_COLORS[idx % FOOTPRINT_COLORS.length];
-    const corners = fp.footprint.corners;
-
-    // Convert corners to canvas coordinates
-    // Footprint corners are in ENU (x=East, y=North) with absolute azimuth already applied
-    // Canvas: x increases right, y increases down
-    const canvasCorners = corners.map((c) => ({
-      x: centerX + c.x * scaleX,
-      y: centerY - c.y * scaleY,
-    }));
-
-    // Fill
-    ctx.fillStyle = color.replace("1)", "0.1)");
-    ctx.beginPath();
-    ctx.moveTo(canvasCorners[0].x, canvasCorners[0].y);
-    canvasCorners.slice(1).forEach((c) => ctx.lineTo(c.x, c.y));
-    ctx.closePath();
-    ctx.fill();
-
-    // Stroke
-    ctx.strokeStyle = color.replace("1)", "0.6)");
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  });
-}
-
-// ============================================================================
-// SCALE BAR
+// ANNOTATIONS
 // ============================================================================
 
 /**
- * Draw scale bar in corner
+ * Draw width and depth annotations
  */
-export function drawScaleBar(
+export function drawAnnotations(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  scale: number,
+  footprint: FootprintResult,
+  footprintBounds: { nearY: number; farY: number; nearWidth: number; farWidth: number },
   displayUnit: UnitKey
 ): void {
-  const scaleFt = convertToFeet(scale, displayUnit);
-  const scaleBarFt = scaleFt / 4;
-  const pxPerFt = (w / 2 - 30) / scaleFt;
-  const scaleBarPx = scaleBarFt * pxPerFt;
-  const scaleBarVal = convertFromFeet(scaleBarFt, displayUnit);
+  const centerX = w / 2;
+  const centerY = h / 2;
+  const unitLabel = UNITS[displayUnit].label;
 
-  const label = `${formatValue(scaleBarVal)} ${UNITS[displayUnit].label}`;
-  drawScaleBarBase(ctx, w, h, scaleBarPx, label, "rgba(52, 211, 153, 0.8)");
+  ctx.font = "10px 'Roboto Mono', monospace";
+
+  // Near width label (below near edge)
+  const nearWidthValue = formatValue(convertFromFeet(footprint.nearWidth, displayUnit));
+  ctx.fillStyle = COLORS.annotation.widthNear;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(`Near: ${nearWidthValue} ${unitLabel}`, centerX, footprintBounds.nearY + 8);
+
+  // Far width label (above far edge) - with horizon indicator if applicable
+  ctx.textBaseline = "bottom";
+  if (footprint.farEdgeAtHorizon) {
+    // Far edge is at or beyond horizon - show warning
+    ctx.fillStyle = COLORS.warning.text;
+    ctx.fillText(`Far: → HORIZON (${footprint.farEdgeDepression.toFixed(1)}°)`, centerX, footprintBounds.farY - 8);
+    
+    // Draw dashed horizon line across far edge
+    ctx.strokeStyle = COLORS.warning.horizon;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, footprintBounds.farY);
+    ctx.lineTo(w, footprintBounds.farY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    const farWidthValue = formatValue(convertFromFeet(footprint.farWidth, displayUnit));
+    ctx.fillStyle = COLORS.annotation.widthFar;
+    ctx.fillText(`Far: ${farWidthValue} ${unitLabel}`, centerX, footprintBounds.farY - 8);
+  }
+
+  // Center width label (at vertical center, offset to the left)
+  const centerWidthValue = formatValue(convertFromFeet(footprint.centerWidth, displayUnit));
+  const leftEdge = centerX - Math.max(footprintBounds.nearWidth, footprintBounds.farWidth) / 2;
+  ctx.fillStyle = COLORS.annotation.text;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`Ctr: ${centerWidthValue} ${unitLabel}`, leftEdge - 8, centerY);
+
+  // Depth label (along right edge)
+  const depth = footprint.farGround - footprint.nearGround;
+  const depthValue = formatValue(convertFromFeet(depth, displayUnit));
+  const depthMidY = (footprintBounds.nearY + footprintBounds.farY) / 2;
+
+  ctx.fillStyle = COLORS.annotation.depth;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  // Position to the right of the footprint
+  const rightEdge = centerX + Math.max(footprintBounds.nearWidth, footprintBounds.farWidth) / 2;
+  ctx.fillText(`${depthValue} ${unitLabel}`, rightEdge + 12, depthMidY);
+
+  // Draw depth indicator line
+  ctx.strokeStyle = COLORS.annotation.depth;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(rightEdge + 6, footprintBounds.nearY);
+  ctx.lineTo(rightEdge + 6, footprintBounds.farY);
+  ctx.stroke();
+
+  // Arrow heads
+  ctx.setLineDash([]);
+  const arrowSize = 4;
+
+  // Top arrow
+  ctx.beginPath();
+  ctx.moveTo(rightEdge + 6, footprintBounds.farY);
+  ctx.lineTo(rightEdge + 6 - arrowSize, footprintBounds.farY + arrowSize);
+  ctx.moveTo(rightEdge + 6, footprintBounds.farY);
+  ctx.lineTo(rightEdge + 6 + arrowSize, footprintBounds.farY + arrowSize);
+  ctx.stroke();
+
+  // Bottom arrow
+  ctx.beginPath();
+  ctx.moveTo(rightEdge + 6, footprintBounds.nearY);
+  ctx.lineTo(rightEdge + 6 - arrowSize, footprintBounds.nearY - arrowSize);
+  ctx.moveTo(rightEdge + 6, footprintBounds.nearY);
+  ctx.lineTo(rightEdge + 6 + arrowSize, footprintBounds.nearY - arrowSize);
+  ctx.stroke();
 }
+
+/**
+ * Draw warning banner when FOV center is beyond visual horizon
+ */
+export function drawHorizonWarning(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  horizonDistanceFt: number,
+  centerGroundFt: number,
+  displayUnit: UnitKey
+): void {
+  if (centerGroundFt <= horizonDistanceFt) return; // No warning needed
+  
+  const unitLabel = UNITS[displayUnit].label;
+  const horizonDist = formatValue(convertFromFeet(horizonDistanceFt, displayUnit));
+  const centerDist = formatValue(convertFromFeet(centerGroundFt, displayUnit));
+  
+  const warningText = `⚠ FOV CENTER BEYOND HORIZON`;
+  const detailText = `Center: ${centerDist} ${unitLabel} | Horizon: ${horizonDist} ${unitLabel}`;
+  
+  ctx.font = "bold 11px 'Roboto Mono', monospace";
+  const warningWidth = ctx.measureText(warningText).width;
+  ctx.font = "9px 'Roboto Mono', monospace";
+  const detailWidth = ctx.measureText(detailText).width;
+  
+  const boxWidth = Math.max(warningWidth, detailWidth) + 24;
+  const boxHeight = 40;
+  const boxX = (w - boxWidth) / 2;
+  const boxY = 8;
+  
+  // Background
+  ctx.fillStyle = COLORS.warning.bg;
+  ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+  
+  // Border
+  ctx.strokeStyle = COLORS.warning.border;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+  
+  // Warning text
+  ctx.fillStyle = COLORS.warning.text;
+  ctx.font = "bold 11px 'Roboto Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(warningText, w / 2, boxY + 8);
+  
+  // Detail text
+  ctx.font = "9px 'Roboto Mono', monospace";
+  ctx.fillText(detailText, w / 2, boxY + 24);
+}
+
+/**
+ * Draw aspect ratio indicator when elongation is significant
+ */
+export function drawAspectRatio(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  footprint: FootprintResult
+): void {
+  const depth = footprint.farGround - footprint.nearGround;
+  const avgWidth = (footprint.nearWidth + footprint.farWidth) / 2;
+
+  // Only show if aspect ratio > 2:1
+  const aspectRatio = depth / avgWidth;
+  if (aspectRatio <= 2 && avgWidth / depth <= 2) return;
+
+  const aspectText =
+    aspectRatio > 1
+      ? `Aspect: ${aspectRatio.toFixed(1)}:1`
+      : `Aspect: 1:${(1 / aspectRatio).toFixed(1)}`;
+
+  ctx.font = "9px 'Roboto Mono', monospace";
+  ctx.fillStyle = COLORS.annotation.aspect;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(aspectText, 8, 8);
+}
+

@@ -1,59 +1,71 @@
-import type { UnitKey, DisplayFootprint } from "./types";
-import { UNITS } from "./types";
+import type { UnitKey, DisplayFootprint } from "../../types";
+import { UNITS } from "../../types";
 import { convertFromFeet, formatValue } from "./geometry";
+import type { NiirsResult } from "../../core/niirs";
+import {
+  getNiirsColor,
+  getNiirsDescription,
+  MIN_DEPRESSION_ANGLE_DEG,
+} from "../../core/niirs";
 
 interface DisplayOptionsProps {
-  scale: number;
-  setScale: (value: number) => void;
-  displayUnit: UnitKey;
-  setDisplayUnit: (value: UnitKey) => void;
   summaryUnit: UnitKey;
   setSummaryUnit: (value: UnitKey) => void;
   footprints: DisplayFootprint[];
+  // NIIRS props
+  niirsResult: NiirsResult | null;
 }
 
 export function DisplayOptions({
-  scale,
-  setScale,
-  displayUnit,
-  setDisplayUnit,
   summaryUnit,
   setSummaryUnit,
   footprints,
+  niirsResult,
 }: DisplayOptionsProps) {
   const fp = footprints[0];
   const summaryUnitLabel = UNITS[summaryUnit].label;
 
+  // Determine if NIIRS is invalid due to shallow angle
+  const isShallowAngle = niirsResult && !niirsResult.valid && 
+    niirsResult.message?.includes("shallow");
+
   return (
     <div className="flex flex-col gap-2 w-full max-w-[140px]">
-      {/* Scale Control with Display Unit */}
-      <div className="flex flex-col w-full">
-        <label className="font-display" htmlFor="footprintScale">
-          SCALE
-        </label>
-        <div className="flex border border-gray-600">
-          <input
-            type="number"
-            id="footprintScale"
-            value={scale}
-            min={1}
-            max={100}
-            step={1}
-            className="flex-1 min-w-0 border-0"
-            onChange={(e) => setScale(Number(e.target.value))}
-          />
-          <select
-            id="displayUnit"
-            className="bg-gray-800 text-gray-300 px-1 border-l border-gray-600"
-            value={displayUnit}
-            onChange={(e) => setDisplayUnit(e.target.value as UnitKey)}
-          >
-            {Object.entries(UNITS).map(([key, spec]) => (
-              <option key={key} value={key} className="bg-gray-800 text-gray-300">
-                {spec.label}
-              </option>
-            ))}
-          </select>
+      {/* NIIRS Estimate Display */}
+      <div>
+        <div className="flex flex-col items-center mb-2">
+          <span className="font-display text-xs text-gray-300">NIIRS EST</span>
+          {isShallowAngle ? (
+            <>
+              <span className="text-2xl font-bold font-mono text-gray-500">
+                N/A
+              </span>
+              <span className="text-[8px] text-red-400 text-center leading-tight mt-1">
+                Depression &lt;{MIN_DEPRESSION_ANGLE_DEG}° - estimate unreliable
+              </span>
+            </>
+          ) : niirsResult && niirsResult.valid ? (
+            <>
+              <span
+                className="text-2xl font-bold font-mono"
+                style={{ color: getNiirsColor(niirsResult.niirs) }}
+              >
+                {niirsResult.niirs.toFixed(1)}
+              </span>
+              <span className="text-[8px] text-gray-400 text-center leading-tight mt-1">
+                {getNiirsDescription(niirsResult.niirs)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-bold font-mono text-gray-500">
+                ---
+              </span>
+              <span className="text-[8px] text-gray-500 text-center leading-tight mt-1">
+                {niirsResult?.message || "Invalid geometry"}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -85,10 +97,14 @@ export function DisplayOptions({
           </div>
           <div className="flex justify-between">
             <span>FAR W:</span>
-            <span className="text-emerald-400">
-              {formatValue(convertFromFeet(fp.footprint.farWidth, summaryUnit))}{" "}
-              {summaryUnitLabel}
-            </span>
+            {fp.footprint.farEdgeAtHorizon ? (
+              <span className="text-orange-400">→ HORIZON</span>
+            ) : (
+              <span className="text-emerald-400">
+                {formatValue(convertFromFeet(fp.footprint.farWidth, summaryUnit))}{" "}
+                {summaryUnitLabel}
+              </span>
+            )}
           </div>
           <div className="flex justify-between">
             <span>CTR W:</span>
@@ -106,10 +122,16 @@ export function DisplayOptions({
           </div>
           <div className="flex justify-between">
             <span>FAR GND:</span>
-            <span className="text-emerald-400">
-              {formatValue(convertFromFeet(fp.footprint.farGround, summaryUnit))}{" "}
-              {summaryUnitLabel}
-            </span>
+            {fp.footprint.farEdgeAtHorizon ? (
+              <span className="text-orange-400" title={`Far edge depression: ${fp.footprint.farEdgeDepression.toFixed(1)}°`}>
+                → HORIZON
+              </span>
+            ) : (
+              <span className="text-emerald-400">
+                {formatValue(convertFromFeet(fp.footprint.farGround, summaryUnit))}{" "}
+                {summaryUnitLabel}
+              </span>
+            )}
           </div>
           <div className="flex justify-between">
             <span>FP DEPTH:</span>
@@ -128,4 +150,3 @@ export function DisplayOptions({
     </div>
   );
 }
-

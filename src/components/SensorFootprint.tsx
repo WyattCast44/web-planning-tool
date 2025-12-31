@@ -11,14 +11,20 @@ import {
   convertFromFeet,
   formatValue,
 } from "./SensorFootprint/geometry";
+import {
+  calculateNiirs,
+  getDefaultResolution,
+  getSensorType,
+  type AtmosphericCondition,
+  type NiirsResult,
+} from "../core/niirs";
 import type {
   SensorConfig,
   FlatLens,
   UnitKey,
   DisplayFootprint,
-  CameraSpec,
-} from "./SensorFootprint/types";
-import { DEFAULT_CONFIG, UNITS } from "./SensorFootprint/types";
+} from "../types";
+import { DEFAULT_CONFIG } from "../types";
 
 /**
  * Get sensor config from window or use default
@@ -33,20 +39,20 @@ export function SensorFootprint() {
   const config = getSensorConfig();
 
   // Global state from store
-  const { altKft, tgtElevKft, hdgDegCardinal } = useAppStore();
+  const { altKft, tgtElevKft } = useAppStore();
 
   // Local state for sensor-specific settings
   const [groundRange, setGroundRange] = useState(5);
-  const [rangeUnit, setRangeUnit] = useState<UnitKey>("nmi");
-  const [displayUnit, setDisplayUnit] = useState<UnitKey>(
+  const [rangeUnit, setRangeUnit] = useState<UnitKey>(
     config.defaults?.units || "nmi"
   );
   const [summaryUnit, setSummaryUnit] = useState<UnitKey>(
     config.defaults?.units || "nmi"
   );
-  const [sensorAzimuth, setSensorAzimuth] = useState(45);
-  const [scale, setScale] = useState(10);
   const [activeZoom, setActiveZoom] = useState(1);
+
+  // Atmospheric conditions for NIIRS calculation
+  const [atmosphere, setAtmosphere] = useState<AtmosphericCondition>("good");
 
   // Sensor system selection (e.g., MTS-B, BLOS Pod)
   const [activeSensorId, setActiveSensorId] = useState(
@@ -94,6 +100,9 @@ export function SensorFootprint() {
       vfov: activeLens.vfov,
       digitalZoom: activeCamera.digitalZoom || [1],
       type: activeCamera.type,
+      // Include sensor resolution if available
+      sensorWidth: activeCamera.sensorWidth,
+      sensorHeight: activeCamera.sensorHeight,
     };
   }, [activeSensor, activeCamera, activeLens]);
 
@@ -136,9 +145,7 @@ export function SensorFootprint() {
   }, [altFt, tgtFt, groundRangeFt]);
 
   // Calculate footprints for display
-  // Use absolute azimuth (heading + relative azimuth) for footprint calculation
-  const absoluteAzimuth = hdgDegCardinal + sensorAzimuth;
-
+  // Use azimuth = 0 (sensor looking "north" in local frame) for footprint-centered canvas
   const footprints = useMemo<DisplayFootprint[]>(() => {
     if (!geometry.valid || !flatLens) return [];
 
@@ -146,9 +153,8 @@ export function SensorFootprint() {
     const effectiveVfov = flatLens.vfov / activeZoom;
 
     const footprint = calculateFootprint(
-      geometry.slantRange,
       geometry.depression,
-      absoluteAzimuth,
+      0, // No azimuth rotation - footprint will be oriented with Y-axis = look direction
       effectiveHfov,
       effectiveVfov,
       geometry.heightAboveTarget
@@ -162,11 +168,41 @@ export function SensorFootprint() {
         effectiveVfov,
       },
     ];
-  }, [geometry, flatLens, activeZoom, absoluteAzimuth]);
+  }, [geometry, flatLens, activeZoom]);
+
+  // Calculate NIIRS estimate
+  const niirsResult = useMemo<NiirsResult | null>(() => {
+    if (!geometry.valid || !flatLens) return null;
+
+    const effectiveHfov = flatLens.hfov / activeZoom;
+    const effectiveVfov = flatLens.vfov / activeZoom;
+
+    // Get sensor resolution - use camera values if available, otherwise defaults
+    let sensorWidth = flatLens.sensorWidth;
+    let sensorHeight = flatLens.sensorHeight;
+
+    if (!sensorWidth || !sensorHeight) {
+      const defaultRes = getDefaultResolution(flatLens.type);
+      sensorWidth = sensorWidth || defaultRes.width;
+      sensorHeight = sensorHeight || defaultRes.height;
+    }
+
+    return calculateNiirs({
+      slantRangeFt: geometry.slantRange,
+      hfovDeg: effectiveHfov,
+      vfovDeg: effectiveVfov,
+      sensorWidthPx: sensorWidth,
+      sensorHeightPx: sensorHeight,
+      sensorType: getSensorType(flatLens.type),
+      atmosphere,
+      digitalZoom: activeZoom,
+      depressionDeg: geometry.depression,
+    });
+  }, [geometry, flatLens, activeZoom, atmosphere]);
 
   // Format slant range for display
   const slantRangeDisplay = geometry.valid
-    ? formatValue(convertFromFeet(geometry.slantRange, displayUnit))
+    ? formatValue(convertFromFeet(geometry.slantRange, rangeUnit))
     : "---";
 
   return (
@@ -180,8 +216,6 @@ export function SensorFootprint() {
         setGroundRange={setGroundRange}
         rangeUnit={rangeUnit}
         setRangeUnit={setRangeUnit}
-        sensorAzimuth={sensorAzimuth}
-        setSensorAzimuth={setSensorAzimuth}
         // Sensor selection
         allSensors={config.sensors}
         activeSensorId={activeSensorId}
@@ -198,10 +232,12 @@ export function SensorFootprint() {
         activeZoom={activeZoom}
         setActiveZoom={setActiveZoom}
         activeCamera={activeCamera}
-        // Display
+        // Visibility
+        atmosphere={atmosphere}
+        setAtmosphere={setAtmosphere}
+        // Outputs
         depressionDeg={geometry.valid ? geometry.depression : 0}
         slantRangeDisplay={slantRangeDisplay}
-        displayUnit={displayUnit}
       />
 
       {/* Error display */}
@@ -217,19 +253,14 @@ export function SensorFootprint() {
         <GraphCanvas
           footprints={footprints}
           geometry={geometry}
-          scale={scale}
-          displayUnit={displayUnit}
-          sensorAzimuth={sensorAzimuth}
-          groundRangeFt={groundRangeFt}
+          displayUnit={rangeUnit}
+          altitudeFt={altKft * 1000}
         />
         <DisplayOptions
-          scale={scale}
-          setScale={setScale}
-          displayUnit={displayUnit}
-          setDisplayUnit={setDisplayUnit}
           summaryUnit={summaryUnit}
           setSummaryUnit={setSummaryUnit}
           footprints={footprints}
+          niirsResult={niirsResult}
         />
       </div>
     </Panel>

@@ -1,35 +1,31 @@
 import { useRef, useEffect } from "react";
-import { useAppStore } from "../../store";
-import type { DisplayFootprint, GeometryResult, UnitKey } from "./types";
+import type { DisplayFootprint, GeometryResult, UnitKey } from "../../types";
 import {
   setupCanvas,
-  drawGrid,
-  drawCompass,
-  drawAircraft,
-  drawAzimuthLine,
-  drawTargetMarker,
-  drawFootprints,
+  calculateCanvasScale,
+  drawFootprintGrid,
+  drawCenteredFootprint,
+  drawCenterMarker,
+  drawAnnotations,
+  drawAspectRatio,
+  drawHorizonWarning,
 } from "./CanvasUtils";
+import { calculateHorizonDistance } from "./geometry";
 
 interface GraphCanvasProps {
   footprints: DisplayFootprint[];
   geometry: GeometryResult;
-  scale: number;
   displayUnit: UnitKey;
-  sensorAzimuth: number;
-  groundRangeFt: number;
+  altitudeFt: number; // Aircraft altitude MSL in feet
 }
 
 export function GraphCanvas({
   footprints,
   geometry,
-  scale,
   displayUnit,
-  sensorAzimuth,
-  groundRangeFt,
+  altitudeFt,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { hdgDegCardinal } = useAppStore();
 
   useEffect(() => {
     const ctx = setupCanvas(canvasRef.current);
@@ -44,45 +40,43 @@ export function GraphCanvas({
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, w, h);
 
-    // Draw grid and get scale factors
-    const { scaleX, scaleY } = drawGrid(ctx, w, h, scale, displayUnit);
-
-    // Draw compass rose
-    drawCompass(ctx, w, h, hdgDegCardinal);
-
-    // Draw aircraft at center
-    drawAircraft(ctx, w, h, hdgDegCardinal);
-
-    // Draw sensor azimuth line
-    drawAzimuthLine(ctx, w, h, hdgDegCardinal, sensorAzimuth);
-
-    // Draw target marker
-    if (geometry.valid) {
-      drawTargetMarker(
-        ctx,
-        w,
-        h,
-        groundRangeFt,
-        hdgDegCardinal,
-        sensorAzimuth,
-        scaleX,
-        scaleY
-      );
+    // Check if we have valid geometry and footprint
+    if (!geometry.valid || footprints.length === 0 || !footprints[0]?.footprint) {
+      // Draw placeholder message
+      ctx.font = "12px 'Roboto Mono', monospace";
+      ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("No valid footprint", w / 2, h / 2);
+      return;
     }
 
-    // Draw footprints
-    if (footprints.length > 0) {
-      drawFootprints(ctx, w, h, footprints, scaleX, scaleY);
-    }
-  }, [
-    footprints,
-    geometry,
-    scale,
-    displayUnit,
-    sensorAzimuth,
-    groundRangeFt,
-    hdgDegCardinal,
-  ]);
+    const footprint = footprints[0].footprint;
+
+    // Calculate auto-scale to fit footprint
+    const scale = calculateCanvasScale(footprint, w, h);
+
+    // Calculate horizon distance for this altitude
+    const horizonDistanceFt = calculateHorizonDistance(altitudeFt);
+
+    // Draw grid
+    drawFootprintGrid(ctx, w, h, footprint, scale, displayUnit);
+
+    // Draw footprint polygon
+    const bounds = drawCenteredFootprint(ctx, w, h, footprint, scale);
+
+    // Draw center marker (aim point)
+    drawCenterMarker(ctx, w, h);
+
+    // Draw annotations (widths, depth)
+    drawAnnotations(ctx, w, h, footprint, bounds, displayUnit);
+
+    // Draw aspect ratio if elongated
+    drawAspectRatio(ctx, w, h, footprint);
+
+    // Draw horizon warning if FOV center is beyond horizon
+    drawHorizonWarning(ctx, w, horizonDistanceFt, footprint.centerGround, displayUnit);
+  }, [footprints, geometry, displayUnit, altitudeFt]);
 
   // Handle window resize
   useEffect(() => {
@@ -98,40 +92,30 @@ export function GraphCanvas({
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
       ctx.fillRect(0, 0, w, h);
 
-      const { scaleX, scaleY } = drawGrid(ctx, w, h, scale, displayUnit);
-      drawCompass(ctx, w, h, hdgDegCardinal);
-      drawAircraft(ctx, w, h, hdgDegCardinal);
-      drawAzimuthLine(ctx, w, h, hdgDegCardinal, sensorAzimuth);
-
-      if (geometry.valid) {
-        drawTargetMarker(
-          ctx,
-          w,
-          h,
-          groundRangeFt,
-          hdgDegCardinal,
-          sensorAzimuth,
-          scaleX,
-          scaleY
-        );
+      if (!geometry.valid || footprints.length === 0 || !footprints[0]?.footprint) {
+        ctx.font = "12px 'Roboto Mono', monospace";
+        ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("No valid footprint", w / 2, h / 2);
+        return;
       }
 
-      if (footprints.length > 0) {
-        drawFootprints(ctx, w, h, footprints, scaleX, scaleY);
-      }
+      const footprint = footprints[0].footprint;
+      const scale = calculateCanvasScale(footprint, w, h);
+      const horizonDistanceFt = calculateHorizonDistance(altitudeFt);
+
+      drawFootprintGrid(ctx, w, h, footprint, scale, displayUnit);
+      const bounds = drawCenteredFootprint(ctx, w, h, footprint, scale);
+      drawCenterMarker(ctx, w, h);
+      drawAnnotations(ctx, w, h, footprint, bounds, displayUnit);
+      drawAspectRatio(ctx, w, h, footprint);
+      drawHorizonWarning(ctx, w, horizonDistanceFt, footprint.centerGround, displayUnit);
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [
-    footprints,
-    geometry,
-    scale,
-    displayUnit,
-    sensorAzimuth,
-    groundRangeFt,
-    hdgDegCardinal,
-  ]);
+  }, [footprints, geometry, displayUnit, altitudeFt]);
 
   return (
     <div className="flex items-center justify-center p-3 rounded-md">
@@ -142,4 +126,3 @@ export function GraphCanvas({
     </div>
   );
 }
-
