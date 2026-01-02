@@ -131,14 +131,14 @@ useAppStore.subscribe(function (state, prevState) {
  * Calculate the wind correction angle
  */
 useAppStore.subscribe(function (state, prevState) {
-  let inputs = [
+  const inputs = [
     state.hdgDegCardinal,
     state.windDegCardinal,
     state.windKts,
     state.keas,
     state.ktas,
   ];
-  let prevInputs = [
+  const prevInputs = [
     prevState.hdgDegCardinal,
     prevState.windDegCardinal,
     prevState.windKts,

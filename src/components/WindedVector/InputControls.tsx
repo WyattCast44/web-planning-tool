@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 type InputMode = "duration" | "headingChange";
 
 interface InputControlsProps {

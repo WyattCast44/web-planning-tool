@@ -22,18 +22,12 @@ const COLORS = {
 } as const;
 
 interface CompassScopeProps {
-  acLatitude: number;
-  acLongitude: number;
-  satLongitude: number;
   hdgDegCardinal: number;
   azTrueDeg: number;
   elevDeg: number;
 }
 
 export function CompassScope({
-  acLatitude,
-  acLongitude,
-  satLongitude,
   hdgDegCardinal,
   azTrueDeg,
   elevDeg,

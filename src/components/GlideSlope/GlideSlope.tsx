@@ -11,11 +11,11 @@ export function GlideSlope() {
 	const [localTgtElevKft, setLocalTgtElevKft] = useState<number | null>(null);
 	const [horizonRangeNm, setHorizonRangeNm] = useState(25);
 	const [runwayHeadingDeg, setRunwayHeadingDeg] = useState(90);
-	const [show3DegRef, setShow3DegRef] = useState(true);
-	const [show6DegRef, setShow6DegRef] = useState(true);
+	const [show3DegRef] = useState(true);
+	const [show6DegRef] = useState(true);
 
 	// if the localTgtElevKft is not null, use it, otherwise use the tgtElevKft from the store
-	let selectedTgtElevKft = localTgtElevKft !== null ? localTgtElevKft : tgtElevKft;
+	const selectedTgtElevKft = localTgtElevKft !== null ? localTgtElevKft : tgtElevKft;
 
 	return (
 		<Panel className="max-w-xl min-w-md mx-auto my-3">

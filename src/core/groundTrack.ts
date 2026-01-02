@@ -198,11 +198,6 @@ export function validateHeadingChange(
 			};
 		}
 
-		// Check for minimum turn radius constraints
-		const ktasFtSec = nmihrToFtSec(ktas);
-		const minTurnRadiusFt = (ktasFtSec * ktasFtSec) / (gravityFtSecS2 * Math.tan(degToRad(Math.abs(maxAngleOfBankDeg))));
-		const minTurnRadiusNmi = ftToNmi(minTurnRadiusFt);
-		
 		// Check if heading change is too small to be meaningful
 		const absoluteHeadingChange = Math.abs(headingChangeDeg);
 		if (absoluteHeadingChange < 0.1) {
@@ -271,10 +266,6 @@ export function calculateGroundTrack(params: Params): Point[] {
 	// Precompute constants for performance
 	const timeIncrementSeconds = 1;
 	const ktasFtSec = nmihrToFtSec(params.ktas);
-	const distanceTraveledInTimeIncrementFt = ktasFtSec * timeIncrementSeconds;
-	const timeToAchieveBankAngleDegSec =
-		Math.abs(params.startingAngleOfBankDeg - params.maxAngleOfBankDeg) /
-		params.rollRateDegSec;
 
 	// Wind calculations - precomputed once
 	const windToDirectionDegCardinal = mod(180 + params.windDegCardinal, 360);
@@ -314,7 +305,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 	}
 
 	// this is the starting turn rate in degrees per second, needed because the starting angle of bank could be not zero
-	let startingTurnRateDegSec = radToDeg(
+	const startingTurnRateDegSec = radToDeg(
 		(params.gravityFtSecS2 *
 			Math.tan(degToRad(params.startingAngleOfBankDeg))) /
 			ktasFtSec
@@ -332,17 +323,17 @@ export function calculateGroundTrack(params: Params): Point[] {
 	// Pre-allocate points array for better performance
 	const estimatedPoints =
 		Math.ceil(durationSeconds / timeIncrementSeconds) + 1;
-	let points: Point[] = new Array(estimatedPoints);
+	const points: Point[] = new Array(estimatedPoints);
 	let pointIndex = 0;
 
 	function computeDerivatives(state: State, currentTime: number): Derivatives {
 		let targetAngleOfBankDeg: number;
-		let rollRateDegSec = Math.abs(params.rollRateDegSec);
+		const rollRateDegSec = Math.abs(params.rollRateDegSec);
 		let dAngleOfBankRateDegSec: number;
 
 		if (turnPhases) {
 			// Use calculated turn phases for heading change mode
-			const { rollInTimeSeconds, sustainedTurnTimeSeconds, rollOutTimeSeconds, targetBankAngleDeg } = turnPhases;
+			const { rollInTimeSeconds, sustainedTurnTimeSeconds, targetBankAngleDeg } = turnPhases;
 			
 			if (currentTime < rollInTimeSeconds) {
 				// Phase 1: Rolling to max bank
@@ -373,26 +364,26 @@ export function calculateGroundTrack(params: Params): Point[] {
 			}
 		}
 
-		let currentAngleOfBankRad = degToRad(state.angleOfBankDeg);
-		let turnRateRadSec =
+		const currentAngleOfBankRad = degToRad(state.angleOfBankDeg);
+		const turnRateRadSec =
 			(params.gravityFtSecS2 * Math.tan(currentAngleOfBankRad)) /
 			ktasFtSec;
 
 		// heading rate is the turn rate in degrees per second
 		// positive turn rate is a right turn
 		// negative turn rate is a left turn
-		let dHdgRateDegSec = radToDeg(turnRateRadSec);
-		let hdgRad = degToRad(state.hdgDegCardinal);
+		const dHdgRateDegSec = radToDeg(turnRateRadSec);
+		const hdgRad = degToRad(state.hdgDegCardinal);
 
 		// airspeed components
 		// east component = x component
-		let vEast = ktasFtSec * Math.sin(hdgRad);
+		const vEast = ktasFtSec * Math.sin(hdgRad);
 		// north component = y component
-		let vNorth = ktasFtSec * Math.cos(hdgRad);
+		const vNorth = ktasFtSec * Math.cos(hdgRad);
 
 		// ground speed components
-		let gsEast = vEast + windXComponentFtSec;
-		let gsNorth = vNorth + windYComponentFtSec;
+		const gsEast = vEast + windXComponentFtSec;
+		const gsNorth = vNorth + windYComponentFtSec;
 
 		return {
 			dx: gsEast,
@@ -408,7 +399,6 @@ export function calculateGroundTrack(params: Params): Point[] {
 		if (turnPhases) {
 			// Use calculated turn phases for heading change mode
 			const { rollInTimeSeconds, sustainedTurnTimeSeconds, rollOutTimeSeconds } = turnPhases;
-			const currentBankAbs = Math.abs(currentAngleOfBankDeg);
 			
 			if (currentTime < rollInTimeSeconds) {
 				return "rollingToMaxBank";
@@ -442,7 +432,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 
 	// now we can loop through the time increments and calculate the aircraft's position as a function of time
 	while (t < durationSeconds) {
-		let stepDt = Math.min(timeIncrementSeconds, durationSeconds - t);
+		const stepDt = Math.min(timeIncrementSeconds, durationSeconds - t);
 
 		// Numerical stability check
 		if (stepDt < 1e-10) {
@@ -476,7 +466,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 		const midState4: State = { ...currentState };
 
 		// k1
-		let k1 = computeDerivatives(currentState, t);
+		const k1 = computeDerivatives(currentState, t);
 
 		// k2
 		midState2.x = currentState.x + 0.5 * stepDt * k1.dx;
@@ -488,7 +478,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 			0.5 * stepDt * k1.dAngleOfBankRateDegSec;
 		midState2.hdgDegCardinal =
 			currentState.hdgDegCardinal + 0.5 * stepDt * k1.dHdgRateDegSec;
-		let k2 = computeDerivatives(midState2, t + 0.5 * stepDt);
+		const k2 = computeDerivatives(midState2, t + 0.5 * stepDt);
 
 		// k3
 		midState3.x = currentState.x + 0.5 * stepDt * k2.dx;
@@ -500,7 +490,7 @@ export function calculateGroundTrack(params: Params): Point[] {
 			0.5 * stepDt * k2.dAngleOfBankRateDegSec;
 		midState3.hdgDegCardinal =
 			currentState.hdgDegCardinal + 0.5 * stepDt * k2.dHdgRateDegSec;
-		let k3 = computeDerivatives(midState3, t + 0.5 * stepDt);
+		const k3 = computeDerivatives(midState3, t + 0.5 * stepDt);
 
 		// k4
 		midState4.x = currentState.x + stepDt * k3.dx;
@@ -511,42 +501,42 @@ export function calculateGroundTrack(params: Params): Point[] {
 			currentState.angleOfBankDeg + stepDt * k3.dAngleOfBankRateDegSec;
 		midState4.hdgDegCardinal =
 			currentState.hdgDegCardinal + stepDt * k3.dHdgRateDegSec;
-		let k4 = computeDerivatives(midState4, t + stepDt);
+		const k4 = computeDerivatives(midState4, t + stepDt);
 
 		// calculate the weighted average of k1, k2, k3, k4 using precomputed constants
 		const weightedFactor = stepDt * RK4_FACTOR;
-		let avgDx =
+		const avgDx =
 			weightedFactor *
 			(RK4_WEIGHTS[0] * k1.dx +
 				RK4_WEIGHTS[1] * k2.dx +
 				RK4_WEIGHTS[2] * k3.dx +
 				RK4_WEIGHTS[3] * k4.dx);
-		let avgDy =
+		const avgDy =
 			weightedFactor *
 			(RK4_WEIGHTS[0] * k1.dy +
 				RK4_WEIGHTS[1] * k2.dy +
 				RK4_WEIGHTS[2] * k3.dy +
 				RK4_WEIGHTS[3] * k4.dy);
-		let avgTurnRateDegSec =
+		const avgTurnRateDegSec =
 			weightedFactor *
 			(RK4_WEIGHTS[0] * k1.dHdgRateDegSec +
 				RK4_WEIGHTS[1] * k2.dHdgRateDegSec +
 				RK4_WEIGHTS[2] * k3.dHdgRateDegSec +
 				RK4_WEIGHTS[3] * k4.dHdgRateDegSec);
-		let avgAngleOfBankDeg =
+		const avgAngleOfBankDeg =
 			weightedFactor *
 			(RK4_WEIGHTS[0] * k1.dAngleOfBankRateDegSec +
 				RK4_WEIGHTS[1] * k2.dAngleOfBankRateDegSec +
 				RK4_WEIGHTS[2] * k3.dAngleOfBankRateDegSec +
 				RK4_WEIGHTS[3] * k4.dAngleOfBankRateDegSec);
-		let avgHdgDegCardinal =
+		const avgHdgDegCardinal =
 			weightedFactor *
 			(RK4_WEIGHTS[0] * k1.dHdgRateDegSec +
 				RK4_WEIGHTS[1] * k2.dHdgRateDegSec +
 				RK4_WEIGHTS[2] * k3.dHdgRateDegSec +
 				RK4_WEIGHTS[3] * k4.dHdgRateDegSec);
 
-		let newState: State = {
+		const newState: State = {
 			x: currentState.x + avgDx,
 			y: currentState.y + avgDy,
 			turnRateDegSec: currentState.turnRateDegSec + avgTurnRateDegSec,

@@ -46,12 +46,3 @@ export function buildProfilePoints(
   return pts;
 }
 
-/**
- * Calculate the altitude change per nautical mile for a given flight path angle.
- * @param fpa_deg Flight path angle in degrees (negative for descent)
- * @returns Altitude change in feet per nautical mile
- */
-export function calculateAltPerNm(fpa_deg: number): number {
-  return Math.abs(Math.tan((fpa_deg * Math.PI) / 180) * nmiToFt(1));
-}
-

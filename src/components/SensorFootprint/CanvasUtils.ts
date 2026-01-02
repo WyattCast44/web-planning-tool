@@ -96,9 +96,6 @@ export function drawFootprintGrid(
   const centerX = w / 2;
   const centerY = h / 2;
 
-  // Calculate footprint center in ground coordinates
-  const footprintCenterY = (footprint.nearGround + footprint.farGround) / 2;
-
   // Calculate grid extent in feet
   const visibleWidthFt = w / scale;
   const visibleHeightFt = h / scale;

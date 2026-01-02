@@ -10,7 +10,6 @@ import {
   drawCenteredGrid,
   calculateGridSpacing,
   drawCompassOverlay as drawCompassOverlayBase,
-  drawDashedLine,
 } from "../../core/canvas";
 
 // Re-export setupCanvas from shared

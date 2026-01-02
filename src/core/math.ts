@@ -14,8 +14,8 @@ export function roundWithPadding(n: number, decimals: number): string {
   /**
    * if the number is an integer, add them with 0
    */
-  let rounded = round(n, decimals).toString();
-  let numberDecimals = rounded.split(".")[1]?.length || 0;
+  const rounded = round(n, decimals).toString();
+  const numberDecimals = rounded.split(".")[1]?.length || 0;
 
   if (rounded.includes(".")) {
     if (numberDecimals < decimals) {
@@ -189,12 +189,12 @@ export function calculateHeightAboveTarget(
   altKft: number,
   tgtElevKft: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     altKft: z.number().min(0).max(10000).catch(0),
     tgtElevKft: z.number().min(0).max(10000).catch(0),
   });
 
-  let result = schema.parse({ altKft, tgtElevKft });
+  const result = schema.parse({ altKft, tgtElevKft });
 
   return round(result.altKft - result.tgtElevKft, 1);
 }
@@ -211,14 +211,14 @@ export function calculateKtasFromKeasAndAltKft(
   keas: number,
   altKft: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     keas: z.number().min(0).max(2000).catch(0),
     altKft: z.number().min(0).max(10000).catch(0),
   });
 
-  let result = schema.parse({ keas, altKft });
+  const result = schema.parse({ keas, altKft });
 
-  let denominator =
+  const denominator =
     1.22 +
     -3.39 * 10 ** -5 * (result.altKft * 1000) +
     2.8 * 10 ** -10 * (result.altKft * 1000) ** 2;
@@ -240,24 +240,24 @@ export function calculateHeadwindOrTailwindComponentFromHdgDegCardinalAndWindDeg
   windDegCardinal: number,
   windSpeed: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
     windDegCardinal: z.number().min(1).max(360).catch(1),
     windSpeed: z.number().min(0).max(1000).catch(0),
   });
 
-  let result = schema.parse({ hdgDegCardinal, windDegCardinal, windSpeed });
+  const result = schema.parse({ hdgDegCardinal, windDegCardinal, windSpeed });
 
-  let deltaHdgDegCardinal = Math.abs(
+  const deltaHdgDegCardinal = Math.abs(
     result.hdgDegCardinal - result.windDegCardinal
   );
-  let deltaHdgDegCardinalRadians = degToRad(deltaHdgDegCardinal);
+  const deltaHdgDegCardinalRadians = degToRad(deltaHdgDegCardinal);
 
-  let headwindOrTailwindComponent = Math.abs(
+  const headwindOrTailwindComponent = Math.abs(
     Math.cos(deltaHdgDegCardinalRadians) * result.windSpeed
   );
 
-  let componentSchema = z.object({
+  const componentSchema = z.object({
     value: z.number().min(0).max(1000).catch(0),
   });
 
@@ -279,24 +279,24 @@ export function calculateCrosswindComponentFromHdgDegCardinalAndWindDegCardinal(
   windDegCardinal: number,
   windSpeed: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
     windDegCardinal: z.number().min(1).max(360).catch(1),
     windSpeed: z.number().min(0).max(1000).catch(0),
   });
 
-  let result = schema.parse({ hdgDegCardinal, windDegCardinal, windSpeed });
+  const result = schema.parse({ hdgDegCardinal, windDegCardinal, windSpeed });
 
-  let deltaHdgDegCardinal = Math.abs(
+  const deltaHdgDegCardinal = Math.abs(
     result.hdgDegCardinal - result.windDegCardinal
   );
-  let deltaHdgDegCardinalRadians = degToRad(deltaHdgDegCardinal);
+  const deltaHdgDegCardinalRadians = degToRad(deltaHdgDegCardinal);
 
-  let crosswindComponent = Math.abs(
+  const crosswindComponent = Math.abs(
     Math.sin(deltaHdgDegCardinalRadians) * result.windSpeed
   );
 
-  let componentSchema = z.object({
+  const componentSchema = z.object({
     value: z.number().min(0).max(1000).catch(0),
   });
 
@@ -315,14 +315,14 @@ export function calculateWindTypeFromHdgDegCardinalAndWindDegCardinal(
   hdgDegCardinal: number,
   windDegCardinal: number
 ): "HW" | "TW" {
-  let schema = z.object({
+  const schema = z.object({
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
     windDegCardinal: z.number().min(1).max(360).catch(1),
   });
 
-  let result = schema.parse({ hdgDegCardinal, windDegCardinal });
+  const result = schema.parse({ hdgDegCardinal, windDegCardinal });
 
-  let deltaHdgDegCardinal = Math.abs(
+  const deltaHdgDegCardinal = Math.abs(
     result.hdgDegCardinal - result.windDegCardinal
   );
 
@@ -339,7 +339,7 @@ export function calculateWindTypeFromHdgDegCardinalAndWindDegCardinal(
     return "TW";
   }
 
-  let deltaHdgDegCardinalMod = mod(
+  const deltaHdgDegCardinalMod = mod(
     result.hdgDegCardinal - result.windDegCardinal + 180,
     360
   );
@@ -363,12 +363,12 @@ export function calculateMachFromKtasAndAltKft(
   ktas: number,
   altKft: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     ktas: z.number().min(0).max(1000).catch(0),
     altKft: z.number().min(0).max(10000).catch(0),
   });
 
-  let result = schema.parse({ ktas, altKft });
+  const result = schema.parse({ ktas, altKft });
 
   return round(result.ktas / ((-1.2188 * result.altKft + 341.59) * 1.944), 2);
 }
@@ -389,24 +389,24 @@ export function calculateWindCorrectionAngleFromHdgDegCardinalAndWindDegCardinal
   windSpeed: number,
   ktas: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
     windDegCardinal: z.number().min(1).max(360).catch(1),
     windSpeed: z.number().min(0).max(1000).catch(0),
     ktas: z.number().min(0).max(1000).catch(0),
   });
 
-  let result = schema.parse({
+  const result = schema.parse({
     hdgDegCardinal,
     windDegCardinal,
     windSpeed,
     ktas,
   });
 
-  let windRadians = degToRad(result.windDegCardinal);
-  let hdgRadians = degToRad(result.hdgDegCardinal);
+  const windRadians = degToRad(result.windDegCardinal);
+  const hdgRadians = degToRad(result.hdgDegCardinal);
 
-  let windCorrectionAngle = Math.asin(
+  const windCorrectionAngle = Math.asin(
     (Math.sin(windRadians - hdgRadians) * result.windSpeed) /
       (result.ktas === 0 ? 0.001 : result.ktas)
   );
@@ -426,12 +426,12 @@ export function calculateCourseDegCardinalFromHdgDegCardinalAndWindCorrectionAng
   hdgDegCardinal: number,
   windCorrectionAngleDeg: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
     windCorrectionAngleDeg: z.number().min(-360).max(360).catch(0),
   });
 
-  let result = schema.parse({ hdgDegCardinal, windCorrectionAngleDeg });
+  const result = schema.parse({ hdgDegCardinal, windCorrectionAngleDeg });
 
   return round(
     mod(result.hdgDegCardinal - result.windCorrectionAngleDeg, 360),
@@ -454,30 +454,30 @@ export function calculateGroundSpeedFromKtasAndWindSpeedAndHdgDegCardinal(
   windSpeed: number,
   hdgDegCardinal: number
 ): number {
-  let schema = z.object({
+  const schema = z.object({
     ktas: z.number().min(0).max(1000).catch(0),
     windDegCardinal: z.number().min(1).max(360).catch(1),
     windSpeed: z.number().min(0).max(1000).catch(0),
     hdgDegCardinal: z.number().min(1).max(360).catch(1),
   });
 
-  let result = schema.parse({
+  const result = schema.parse({
     ktas,
     windDegCardinal,
     windSpeed,
     hdgDegCardinal,
   });
 
-  let windDegCardinalTo = mod(result.windDegCardinal + 180, 360);
-  let tasN = result.ktas * Math.cos(degToRad(result.hdgDegCardinal));
-  let tasE = result.ktas * Math.sin(degToRad(result.hdgDegCardinal));
-  let wsN = result.windSpeed * Math.cos(degToRad(windDegCardinalTo));
-  let wsE = result.windSpeed * Math.sin(degToRad(windDegCardinalTo));
-  let gsN = tasN + wsN;
-  let gsE = tasE + wsE;
-  let gs = Math.sqrt(gsN ** 2 + gsE ** 2);
+  const windDegCardinalTo = mod(result.windDegCardinal + 180, 360);
+  const tasN = result.ktas * Math.cos(degToRad(result.hdgDegCardinal));
+  const tasE = result.ktas * Math.sin(degToRad(result.hdgDegCardinal));
+  const wsN = result.windSpeed * Math.cos(degToRad(windDegCardinalTo));
+  const wsE = result.windSpeed * Math.sin(degToRad(windDegCardinalTo));
+  const gsN = tasN + wsN;
+  const gsE = tasE + wsE;
+  const gs = Math.sqrt(gsN ** 2 + gsE ** 2);
 
-  let gsSchema = z.object({
+  const gsSchema = z.object({
     value: z.number().min(0).max(1000).catch(0),
   });
 

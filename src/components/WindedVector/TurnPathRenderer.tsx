@@ -99,10 +99,10 @@ export function drawTurnPath(
   // Draw opposite turn track if enabled
   if (showOppositeTurn && oppositePoints.length > 1) {
     ctx.beginPath();
-    let firstOppositePoint = oppositePoints[0];
-    let firstOppositeCanvasX =
+    const firstOppositePoint = oppositePoints[0];
+    const firstOppositeCanvasX =
       w / 2 + firstOppositePoint.x * pointScale;
-    let firstOppositeCanvasY =
+    const firstOppositeCanvasY =
       h / 2 - firstOppositePoint.y * pointScale;
     ctx.moveTo(firstOppositeCanvasX, firstOppositeCanvasY);
 

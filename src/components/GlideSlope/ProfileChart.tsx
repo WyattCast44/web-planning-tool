@@ -7,7 +7,7 @@ import {
   drawTargetLine,
   drawRunwayThreshold,
 } from "./ChartUtils";
-import { buildProfilePoints, rangeToTarget } from "./GlideSlopeUtils";
+import { buildProfilePoints } from "./GlideSlopeUtils";
 import { nmiToFt } from "../../core/conversions";
 
 function setupCanvas(canvas: HTMLCanvasElement | null) {
@@ -193,11 +193,6 @@ export function ProfileChart({
     const pad = (yMax - yMin) * 0.1 + 0.5;
     yMax = Math.max(1, yMax + pad);
     yMin = Math.max(0, yMin - pad);
-
-    // Normal x-axis: 0 is on left, xmax is on right
-    const xScale = (x: number) => dims.marginLeft + (x / xmax) * dims.innerWidth;
-    const yScale = (y: number) =>
-      dims.marginTop + (1 - (y - yMin) / (yMax - yMin)) * dims.innerHeight;
 
     // Convert mouse x position to distance from target
     const xnmRaw = Math.min(xmax, Math.max(0, (mx - dims.marginLeft) / dims.innerWidth * xmax));

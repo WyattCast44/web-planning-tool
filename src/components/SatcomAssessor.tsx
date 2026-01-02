@@ -39,7 +39,7 @@ export function SatcomAssessor() {
     }
   }, [acLatitude, acLongitude, satLongitude, altKft, hdgDegCardinal]);
 
-  const { azTrueDeg, azRelDeg, elevDeg } = pointingData;
+  const { azTrueDeg, elevDeg } = pointingData;
 
   return (
     <Panel className="overflow-hidden max-w-xl min-w-md mx-auto my-3">
@@ -58,9 +58,6 @@ export function SatcomAssessor() {
       
       <div className="bg-black/35 rounded-md flex">
         <CompassScope
-          acLatitude={acLatitude}
-          acLongitude={acLongitude}
-          satLongitude={satLongitude}
           hdgDegCardinal={hdgDegCardinal}
           azTrueDeg={azTrueDeg}
           elevDeg={elevDeg}
