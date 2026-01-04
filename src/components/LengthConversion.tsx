@@ -34,7 +34,7 @@ export function LengthConversion() {
   const units = [
     { key: "ft", label: "FT", value: ftConversion, setValue: setFtConversion, min: 0, step: 1 },
     { key: "m", label: "M", value: mConversion, setValue: setMConversion, min: 0, step: 1 },
-    { key: "nmi", label: "Nmi", value: nmiConversion, setValue: setNmiConversion, min: 0, step: 1 },
+    { key: "nmi", label: "Nm", value: nmiConversion, setValue: setNmiConversion, min: 0, step: 1 },
     { key: "km", label: "KM", value: kmConversion, setValue: setKmConversion, min: 0, step: 1 },
     { key: "yd", label: "YD", value: ydConversion, setValue: setYdConversion, min: 0, step: 1, className: "rounded-br-md border-r border-b border-gray-600" },
   ];

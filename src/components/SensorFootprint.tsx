@@ -19,24 +19,16 @@ import {
   type NiirsResult,
 } from "../core/niirs";
 import type {
-  SensorConfig,
   FlatLens,
   UnitKey,
   DisplayFootprint,
 } from "../types";
-import { DEFAULT_CONFIG } from "../types";
-
-/**
- * Get sensor config from window or use default
- */
-function getSensorConfig(): SensorConfig {
-  return typeof window !== "undefined" && window.SENSOR_CONFIG
-    ? window.SENSOR_CONFIG
-    : DEFAULT_CONFIG;
-}
+import { useSensorConfig, useDisplayConfig, useFeatureConfig } from "../config/store";
 
 export function SensorFootprint() {
-  const config = getSensorConfig();
+  const sensorConfig = useSensorConfig();
+  const displayConfig = useDisplayConfig();
+  const featureConfig = useFeatureConfig();
 
   // Global state from store
   const { altKft, tgtElevKft } = useAppStore();
@@ -44,10 +36,10 @@ export function SensorFootprint() {
   // Local state for sensor-specific settings
   const [groundRange, setGroundRange] = useState(5);
   const [rangeUnit, setRangeUnit] = useState<UnitKey>(
-    config.defaults?.units || "nmi"
+    displayConfig.defaultDistanceUnit
   );
   const [summaryUnit, setSummaryUnit] = useState<UnitKey>(
-    config.defaults?.units || "nmi"
+    displayConfig.defaultDistanceUnit
   );
   const [activeZoom, setActiveZoom] = useState(1);
 
@@ -56,11 +48,11 @@ export function SensorFootprint() {
 
   // Sensor system selection (e.g., MTS-B, BLOS Pod)
   const [activeSensorId, setActiveSensorId] = useState(
-    config.sensors[0]?.id || ""
+    sensorConfig.sensorSystems[0]?.id || ""
   );
 
   // Get active sensor system
-  const activeSensor = config.sensors.find((s) => s.id === activeSensorId);
+  const activeSensor = sensorConfig.sensorSystems.find((s) => s.id === activeSensorId);
 
   // Camera selection within the active sensor
   const [activeCameraId, setActiveCameraId] = useState(
@@ -109,7 +101,7 @@ export function SensorFootprint() {
   // Handle sensor change - reset camera, lens, and zoom
   const handleSensorChange = (sensorId: string) => {
     setActiveSensorId(sensorId);
-    const newSensor = config.sensors.find((s) => s.id === sensorId);
+    const newSensor = sensorConfig.sensorSystems.find((s) => s.id === sensorId);
     if (newSensor && newSensor.cameras.length > 0) {
       setActiveCameraId(newSensor.cameras[0].id);
       if (newSensor.cameras[0].lenses.length > 0) {
@@ -217,7 +209,7 @@ export function SensorFootprint() {
         rangeUnit={rangeUnit}
         setRangeUnit={setRangeUnit}
         // Sensor selection
-        allSensors={config.sensors}
+        allSensors={sensorConfig.sensorSystems}
         activeSensorId={activeSensorId}
         setActiveSensorId={handleSensorChange}
         // Camera selection
@@ -260,7 +252,7 @@ export function SensorFootprint() {
           summaryUnit={summaryUnit}
           setSummaryUnit={setSummaryUnit}
           footprints={footprints}
-          niirsResult={niirsResult}
+          niirsResult={featureConfig.sensorFootprint.showNIIRS ? niirsResult : null}
         />
       </div>
     </Panel>

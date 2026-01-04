@@ -36,7 +36,7 @@ export function SpeedConversion() {
     { key: "ms", label: "M/S", value: msConversion, setValue: setMsConversion, min: 0, step: 1 },
     { key: "fpm", label: "FPM", value: fpmConversion, setValue: setFpmConversion, min: 0, step: 1 },
     { key: "kmh", label: "Km/hr", value: kmhConversion, setValue: setKmhConversion, min: 0, step: 1 },
-    { key: "nmihr", label: "Nmi/hr", value: nmihrConversion, setValue: setNmihrConversion, min: 0, step: 1, className: "rounded-br-md border-r border-b border-gray-600" },
+    { key: "nmihr", label: "Nm/hr", value: nmihrConversion, setValue: setNmihrConversion, min: 0, step: 1, className: "rounded-br-md border-r border-b border-gray-600" },
   ];
 
   const conversionFunctions = {

@@ -5,16 +5,6 @@ import { UNITS } from "../../types";
 const EARTH_RADIUS_FT = 20902231; // feet (mean radius)
 
 /**
- * Calculate visual horizon distance from a given altitude
- * This is the maximum distance at which an object on the ground can be seen
- */
-export function calculateHorizonDistance(altitudeFt: number): number {
-  // Horizon distance = sqrt(2 * R * h) where R is earth radius and h is height
-  // This gives the distance along the earth's surface to the horizon
-  return Math.sqrt(2 * EARTH_RADIUS_FT * altitudeFt);
-}
-
-/**
  * Convert from feet to specified unit
  */
 export function convertFromFeet(valueFt: number, toUnit: UnitKey): number {
@@ -31,11 +21,12 @@ export function convertToFeet(value: number, fromUnit: UnitKey): number {
 /**
  * Format a value for display
  */
-export function formatValue(value: number, decimals: number = 1): string {
-  if (Math.abs(value) < 0.01) return value.toExponential(1);
-  if (Math.abs(value) < 10) return value.toFixed(decimals + 1);
-  if (Math.abs(value) < 100) return value.toFixed(decimals);
-  return Math.round(value).toLocaleString();
+export function formatValue(value: number, decimals: number = 2): string {
+  if (!Number.isFinite(value)) return "—";
+  if (Math.abs(value) < 0.01 && value !== 0) {
+    return value.toExponential(1);
+  }
+  return value.toFixed(decimals);
 }
 
 /**
@@ -46,54 +37,323 @@ export function formatValue(value: number, decimals: number = 1): string {
  *
  * Uses spherical earth model for simplicity (accurate enough for sensor planning)
  */
+// ============================================================================
+// CORE GEOMETRY - FORWARD CALCULATION
+// ============================================================================
+
+/**
+ * Calculate slant range, depression angle, and related geometry from ground range.
+ * 
+ * This is the PRIMARY geometry function. All other functions must produce
+ * results consistent with this one.
+ * 
+ * Uses spherical earth model with law of cosines.
+ * 
+ * @param altMslFt - Aircraft altitude MSL in feet
+ * @param tgtElevFt - Target elevation in feet
+ * @param groundRangeFt - Ground range to target in feet
+ * @returns Geometry result with slant range, depression, etc.
+ */
 export function calculateGeometry(
   altMslFt: number,
   tgtElevFt: number,
   groundRangeFt: number
 ): GeometryResult {
-  const h = altMslFt - tgtElevFt; // Height above target
+  const heightAboveTarget = altMslFt - tgtElevFt;
 
-  if (h <= 0) {
+  // Validate inputs
+  if (heightAboveTarget <= 0) {
     return {
       slantRange: 0,
       depression: 0,
       heightAboveTarget: 0,
       centralAngle: 0,
       valid: false,
-      error: "Aircraft below target",
+      error: "Aircraft must be above target",
     };
   }
 
-  // For curved earth: use law of cosines
-  const R = EARTH_RADIUS_FT;
-  const r_aircraft = R + altMslFt;
-  const r_target = R + tgtElevFt;
+  if (groundRangeFt < 0) {
+    return {
+      slantRange: 0,
+      depression: 0,
+      heightAboveTarget,
+      centralAngle: 0,
+      valid: false,
+      error: "Ground range must be non-negative",
+    };
+  }
 
-  // Central angle (radians) = ground range / earth radius
+  // Handle zero ground range (directly overhead)
+  if (groundRangeFt === 0) {
+    return {
+      slantRange: heightAboveTarget,
+      depression: 90,
+      heightAboveTarget,
+      centralAngle: 0,
+      valid: true,
+    };
+  }
+
+  const R = EARTH_RADIUS_FT;
+  const rAircraft = R + altMslFt;
+  const rTarget = R + tgtElevFt;
+
+  // Central angle from ground range (arc length / radius)
   const centralAngle = groundRangeFt / R;
 
-  // Law of cosines to find slant range
+  // Law of cosines for slant range
+  // slantRange² = rAircraft² + rTarget² - 2·rAircraft·rTarget·cos(centralAngle)
   const slantRangeSq =
-    r_aircraft * r_aircraft +
-    r_target * r_target -
-    2 * r_aircraft * r_target * Math.cos(centralAngle);
+    rAircraft * rAircraft +
+    rTarget * rTarget -
+    2 * rAircraft * rTarget * Math.cos(centralAngle);
+  
+  const slantRange = Math.sqrt(Math.max(0, slantRangeSq));
 
-  const slantRange = Math.sqrt(slantRangeSq);
-
-  // Calculate depression angle using flat earth approximation with curvature correction
-  const flatDepression = radToDeg(Math.atan2(h, groundRangeFt));
-
-  // Blend: use flat earth for short ranges, curved for long
-  const blendFactor = Math.min(1, groundRangeFt / (50 * 6076.115)); // blend over 50nm
-  const finalDepression = flatDepression * (1 - blendFactor * 0.1);
+  // Depression angle calculation
+  // Use the sine rule to find the angle at the aircraft
+  // sin(angleAtAircraft) / rTarget = sin(centralAngle) / slantRange
+  const sinAngleAtAircraft = (rTarget * Math.sin(centralAngle)) / slantRange;
+  const angleAtAircraft = Math.asin(Math.max(-1, Math.min(1, sinAngleAtAircraft)));
+  
+  // Depression is 90° minus the angle from vertical
+  // The angle from nadir to target = angleAtAircraft
+  // Depression from horizontal = 90° - angleAtAircraft (in a flat earth sense)
+  // But we need to account for earth curvature
+  
+  // More direct approach: depression = atan2(vertical_drop, horizontal_distance)
+  // where we account for earth curvature in the vertical drop
+  // Vertical drop (accounting for curvature): h + (rTarget - rTarget*cos(centralAngle))
+  // Horizontal distance: rTarget * sin(centralAngle)
+  
+  const verticalDrop = heightAboveTarget + rTarget * (1 - Math.cos(centralAngle));
+  const horizontalDist = rTarget * Math.sin(centralAngle);
+  
+  const depressionRad = Math.atan2(verticalDrop, horizontalDist);
+  const depression = depressionRad * (180 / Math.PI);
 
   return {
     slantRange,
-    depression: Math.max(0, Math.min(90, finalDepression)),
-    heightAboveTarget: h,
-    centralAngle: radToDeg(centralAngle),
+    depression: Math.max(0, Math.min(90, depression)),
+    heightAboveTarget,
+    centralAngle,
     valid: true,
   };
+}
+
+// ============================================================================
+// INVERSE CALCULATIONS - FROM SLANT RANGE
+// ============================================================================
+
+export interface RangeConversionResult {
+  groundRangeFt: number;
+  slantRangeFt: number;
+  depressionDeg: number;
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Calculate ground range and depression from slant range.
+ * 
+ * Uses iterative refinement to ensure consistency with calculateGeometry().
+ * 
+ * @param altMslFt - Aircraft altitude MSL in feet
+ * @param tgtElevFt - Target elevation in feet  
+ * @param slantRangeFt - Slant range to target in feet
+ * @returns Ground range and depression consistent with calculateGeometry
+ */
+export function calculateFromSlantRange(
+  altMslFt: number,
+  tgtElevFt: number,
+  slantRangeFt: number
+): RangeConversionResult {
+  const heightAboveTarget = altMslFt - tgtElevFt;
+
+  // Validate inputs
+  if (heightAboveTarget <= 0) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt: 0,
+      depressionDeg: 0,
+      valid: false,
+      error: "Aircraft must be above target",
+    };
+  }
+
+  if (slantRangeFt <= 0) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt: 0,
+      depressionDeg: 0,
+      valid: false,
+      error: "Slant range must be positive",
+    };
+  }
+
+  if (slantRangeFt < heightAboveTarget) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt,
+      depressionDeg: 0,
+      valid: false,
+      error: "Slant range cannot be less than height above target",
+    };
+  }
+
+  const R = EARTH_RADIUS_FT;
+  const rAircraft = R + altMslFt;
+  const rTarget = R + tgtElevFt;
+
+  // Solve for central angle using law of cosines
+  // slantRange² = rAircraft² + rTarget² - 2·rAircraft·rTarget·cos(centralAngle)
+  // cos(centralAngle) = (rAircraft² + rTarget² - slantRange²) / (2·rAircraft·rTarget)
+  const cosNumerator = rAircraft * rAircraft + rTarget * rTarget - slantRangeFt * slantRangeFt;
+  const cosDenominator = 2 * rAircraft * rTarget;
+  const cosCentralAngle = cosNumerator / cosDenominator;
+
+  // Check if solution is valid (cosine must be in [-1, 1])
+  if (cosCentralAngle < -1 || cosCentralAngle > 1) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt,
+      depressionDeg: 0,
+      valid: false,
+      error: "No valid geometry for given parameters",
+    };
+  }
+
+  const centralAngle = Math.acos(cosCentralAngle);
+  const groundRangeFt = centralAngle * R;
+
+  // Now use calculateGeometry to get the depression (ensures consistency)
+  const geometry = calculateGeometry(altMslFt, tgtElevFt, groundRangeFt);
+
+  return {
+    groundRangeFt,
+    slantRangeFt: geometry.slantRange, // Use the forward calculation's slant range
+    depressionDeg: geometry.depression,
+    valid: true,
+  };
+}
+
+// ============================================================================
+// INVERSE CALCULATIONS - FROM DEPRESSION
+// ============================================================================
+
+/**
+ * Calculate ground range and slant range from depression angle.
+ * 
+ * Uses iterative refinement to ensure consistency with calculateGeometry().
+ * 
+ * @param altMslFt - Aircraft altitude MSL in feet
+ * @param tgtElevFt - Target elevation in feet
+ * @param depressionDeg - Depression angle in degrees
+ * @returns Ground range and slant range consistent with calculateGeometry
+ */
+export function calculateFromDepression(
+  altMslFt: number,
+  tgtElevFt: number,
+  depressionDeg: number
+): RangeConversionResult {
+  const heightAboveTarget = altMslFt - tgtElevFt;
+
+  // Validate inputs
+  if (heightAboveTarget <= 0) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt: 0,
+      depressionDeg: 0,
+      valid: false,
+      error: "Aircraft must be above target",
+    };
+  }
+
+  if (depressionDeg <= 0) {
+    return {
+      groundRangeFt: 0,
+      slantRangeFt: 0,
+      depressionDeg: 0,
+      valid: false,
+      error: "Depression must be greater than 0°",
+    };
+  }
+
+  if (depressionDeg >= 90) {
+    // Directly overhead
+    return {
+      groundRangeFt: 0,
+      slantRangeFt: heightAboveTarget,
+      depressionDeg: 90,
+      valid: true,
+    };
+  }
+
+  // Initial estimate using flat earth approximation
+  const depressionRad = depressionDeg * (Math.PI / 180);
+  let groundRangeFt = heightAboveTarget / Math.tan(depressionRad);
+
+  // Iterative refinement to match calculateGeometry's depression output
+  // Binary search for the ground range that produces the target depression
+  let low = 0;
+  let high = groundRangeFt * 3; // Upper bound (will be more than enough)
+  
+  const targetDepression = depressionDeg;
+  const tolerance = 0.0001; // Degrees
+  
+  for (let i = 0; i < 50; i++) {
+    const mid = (low + high) / 2;
+    const geometry = calculateGeometry(altMslFt, tgtElevFt, mid);
+    
+    if (!geometry.valid) {
+      high = mid;
+      continue;
+    }
+    
+    const error = geometry.depression - targetDepression;
+    
+    if (Math.abs(error) < tolerance) {
+      groundRangeFt = mid;
+      break;
+    }
+    
+    // Higher depression = lower ground range
+    if (error > 0) {
+      // Current depression too high, need more ground range
+      low = mid;
+    } else {
+      // Current depression too low, need less ground range
+      high = mid;
+    }
+    
+    groundRangeFt = mid;
+  }
+
+  // Get final values from calculateGeometry to ensure perfect consistency
+  const finalGeometry = calculateGeometry(altMslFt, tgtElevFt, groundRangeFt);
+
+  return {
+    groundRangeFt,
+    slantRangeFt: finalGeometry.slantRange,
+    depressionDeg: finalGeometry.depression,
+    valid: finalGeometry.valid,
+    error: finalGeometry.error,
+  };
+}
+
+// ============================================================================
+// FOOTPRINT CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate visual horizon distance from a given altitude
+ * This is the maximum distance at which an object on the ground can be seen
+ */
+export function calculateHorizonDistance(altitudeFt: number): number {
+  // Horizon distance = sqrt(2 * R * h) where R is earth radius and h is height
+  // This gives the distance along the earth's surface to the horizon
+  return Math.sqrt(2 * EARTH_RADIUS_FT * altitudeFt);
 }
 
 /**

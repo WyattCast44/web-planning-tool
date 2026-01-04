@@ -59,12 +59,68 @@ export interface TurretSpec {
   maxDepression: number;
 }
 
+// Legacy SensorConfig interface (for backward compatibility)
 export interface SensorConfig {
   turret: TurretSpec;
   sensors: SensorSpec[];
   defaults?: {
     units?: UnitKey;
   };
+}
+
+// New comprehensive AppConfig structure
+export type ClassificationLevel = "U" | "CUI" | "S" | "TS";
+
+export interface ClassificationConfig {
+  bannerEnabled: boolean;
+  level: ClassificationLevel;
+  sar: boolean;
+  bannerText: string;
+}
+
+export interface SensorsConfig {
+  turret: TurretSpec;
+  sensorSystems: SensorSpec[];
+}
+
+export interface DisplayConfig {
+  defaultDistanceUnit: UnitKey;
+  decimalPlaces: {
+    distance: number;
+    speed: number;
+    angle: number;
+    altitude: number;
+  };
+}
+
+export interface FeatureConfig {
+  sensorFootprint: {
+    enabled: boolean;
+    showNIIRS: boolean;
+  };
+  satcomAssessor: {
+    enabled: boolean;
+  };
+  windedVector: {
+    enabled: boolean;
+  };
+}
+
+export interface PerformanceConfig {
+  canvas: {
+    maxFps: number;
+    enableAntialiasing: boolean;
+  };
+  enableCaching: boolean;
+  cacheSize: number;
+}
+
+export interface AppConfig {
+  classification: ClassificationConfig;
+  sensors: SensorsConfig;
+  display: DisplayConfig;
+  features: FeatureConfig;
+  performance: PerformanceConfig;
 }
 
 // Flattened lens for UI display
@@ -133,7 +189,7 @@ export interface UnitSpec {
   fromFeet: number;
 }
 
-// Default config if sensor-config.js is not loaded
+// Default sensor config (legacy, for backward compatibility)
 export const DEFAULT_CONFIG: SensorConfig = {
   turret: { minAzimuth: -180, maxAzimuth: 180, minDepression: 0, maxDepression: 90 },
   sensors: [
@@ -156,6 +212,65 @@ export const DEFAULT_CONFIG: SensorConfig = {
   defaults: { units: "nmi" },
 };
 
+// Default app config if app-config.js is not loaded
+export const DEFAULT_APP_CONFIG: AppConfig = {
+  classification: {
+    bannerEnabled: true,
+    level: "U",
+    sar: false,
+    bannerText: "",
+  },
+  sensors: {
+    turret: { minAzimuth: -180, maxAzimuth: 180, minDepression: 0, maxDepression: 90 },
+    sensorSystems: [
+      {
+        id: "default-sensor",
+        name: "Default Sensor",
+        cameras: [
+          {
+            id: "eo",
+            name: "EO",
+            type: "visible",
+            lenses: [{ id: "default", name: "Default", hfov: 20, vfov: 15 }],
+            digitalZoom: [1, 2, 4],
+            sensorWidth: 1920,
+            sensorHeight: 1080,
+          },
+        ],
+      },
+    ],
+  },
+  display: {
+    defaultDistanceUnit: "nmi",
+    decimalPlaces: {
+      distance: 2,
+      speed: 1,
+      angle: 1,
+      altitude: 1,
+    },
+  },
+  features: {
+    sensorFootprint: {
+      enabled: true,
+      showNIIRS: true,
+    },
+    satcomAssessor: {
+      enabled: true,
+    },
+    windedVector: {
+      enabled: true,
+    },
+  },
+  performance: {
+    canvas: {
+      maxFps: 60,
+      enableAntialiasing: true,
+    },
+    enableCaching: true,
+    cacheSize: 1000,
+  },
+};
+
 // Units lookup
 export const UNITS: Record<UnitKey, UnitSpec> = {
   nmi: { label: "NM", toFeet: 6076.115, fromFeet: 1 / 6076.115 },
@@ -166,6 +281,9 @@ export const UNITS: Record<UnitKey, UnitSpec> = {
 
 declare global {
   interface Window {
+    // Legacy support for sensor-config.js
     SENSOR_CONFIG?: SensorConfig;
+    // New app config
+    APP_CONFIG?: AppConfig;
   }
 }
