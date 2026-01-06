@@ -16,7 +16,85 @@ const COLORS = {
   LINK_VISIBLE: "rgba(16,185,129,.5)",
   LINK_HIDDEN: "rgba(239,68,68,.5)",
   GRID: "rgba(0,0,0,.35)",
+  FOOTPRINT_FILL: "rgba(16,185,129,.15)",
+  FOOTPRINT_STROKE: "rgba(16,185,129,.6)",
 } as const;
+
+// Geostationary satellite altitude in km
+const GEO_ALTITUDE_KM = 35786;
+const EARTH_RADIUS_KM = 6371;
+
+// Calculate the maximum geocentric angle for LOS (where elevation = 0°)
+// cos(maxAngle) = R_earth / (R_earth + h_satellite)
+const MAX_GEOCENTRIC_ANGLE_RAD = Math.acos(
+  EARTH_RADIUS_KM / (EARTH_RADIUS_KM + GEO_ALTITUDE_KM)
+); // ~81.3°
+
+/**
+ * Generate an SVG path for the satellite footprint.
+ * The footprint is a circle on the sphere centered at (0, satLon) with angular radius ~81.3°.
+ */
+function generateFootprintPath(
+  satLon: number,
+  proj: (lat: number, lon: number) => { x: number; y: number },
+  numPoints: number = 72
+): string {
+  const maxAngle = MAX_GEOCENTRIC_ANGLE_RAD;
+  const pathParts: string[] = [];
+  
+  for (let i = 0; i <= numPoints; i++) {
+    // Parametric angle around the footprint circle (0 to 2π)
+    const theta = (i / numPoints) * 2 * Math.PI;
+    
+    // Calculate point on a sphere at angular distance maxAngle from subsatellite point
+    // Using spherical geometry: rotate from (0, satLon) by maxAngle in direction theta
+    const lat = Math.asin(Math.sin(maxAngle) * Math.cos(theta)) * (180 / Math.PI);
+    
+    // Calculate longitude offset
+    const lonOffset = Math.atan2(
+      Math.sin(maxAngle) * Math.sin(theta),
+      Math.cos(maxAngle)
+    ) * (180 / Math.PI);
+    
+    const lon = satLon + lonOffset;
+    const p = proj(lat, lon);
+    
+    pathParts.push(`${i === 0 ? 'M' : 'L'}${p.x},${p.y}`);
+  }
+  
+  return pathParts.join(' ') + ' Z';
+}
+
+/**
+ * Get all footprint paths to draw, including wrapped copies for edge cases.
+ * When satellite is near ±180°, we draw additional copies offset by 360°.
+ */
+function getFootprintPaths(
+  satLon: number,
+  proj: (lat: number, lon: number) => { x: number; y: number }
+): string[] {
+  const paths: string[] = [];
+  
+  // The footprint extends ~81.3° from the satellite, so it crosses the edge
+  // when |satLon| > 180 - 81.3 = ~98.7
+  const MAX_LON_OFFSET = 81.3;
+  const WRAP_THRESHOLD = 180 - MAX_LON_OFFSET;
+  
+  // Always draw the main footprint
+  paths.push(generateFootprintPath(satLon, proj));
+  
+  // Draw wrapped copies if needed
+  if (satLon > WRAP_THRESHOLD) {
+    // Footprint crosses right edge, draw a copy on the left
+    paths.push(generateFootprintPath(satLon - 360, proj));
+  }
+  if (satLon < -WRAP_THRESHOLD) {
+    // Footprint crosses left edge, draw a copy on the right
+    paths.push(generateFootprintPath(satLon + 360, proj));
+  }
+  
+  return paths;
+}
 
 interface MapProps {
   acLatitude: number;
@@ -24,6 +102,8 @@ interface MapProps {
   satLongitude: number;
   visible: boolean;
   acHeading: number;
+  onAircraftSelect?: (lat: number, lon: number) => void;
+  onSatelliteSelect?: (lon: number) => void;
 }
 
 export function Map({
@@ -32,8 +112,47 @@ export function Map({
   satLongitude,
   visible,
   acHeading,
+  onAircraftSelect,
+  onSatelliteSelect,
 }: MapProps) {
   const mapSvg = useRef<SVGSVGElement>(null);
+
+  const getClickCoordinates = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!mapSvg.current) return null;
+    
+    const svg = mapSvg.current;
+    const rect = svg.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const w = Math.max(svg.clientWidth, 300);
+    const h = Math.max(svg.clientHeight, 150);
+    
+    // Reverse the projection: convert pixel coordinates to lat/lon
+    const lon = (x / w) * 360 - 180;
+    const lat = 90 - (y / h) * 180;
+    
+    // Clamp values to valid ranges
+    return {
+      lat: Math.max(-90, Math.min(90, lat)),
+      lon: Math.max(-180, Math.min(180, lon)),
+    };
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Ctrl+click sets satellite longitude
+    if (e.ctrlKey && onSatelliteSelect) {
+      const coords = getClickCoordinates(e);
+      if (coords) onSatelliteSelect(coords.lon);
+    }
+  }, [onSatelliteSelect, getClickCoordinates]);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Double click sets aircraft location
+    if (!onAircraftSelect) return;
+    const coords = getClickCoordinates(e);
+    if (coords) onAircraftSelect(coords.lat, coords.lon);
+  }, [onAircraftSelect, getClickCoordinates]);
 
   function drawMap(
     mapSvg: SVGSVGElement,
@@ -61,6 +180,23 @@ export function Map({
     base.setAttribute("filter", "brightness(0.5)");
 
     mapSvg.appendChild(base);
+
+    // Draw satellite footprint overlay
+    const proj = (lat: number, lon: number) => ({
+      x: ((lon + 180) / 360) * w,
+      y: ((90 - lat) / 180) * h,
+    });
+
+    const footprintPaths = getFootprintPaths(satLon, proj);
+    
+    for (const pathD of footprintPaths) {
+      const footprint = document.createElementNS(NS, "path");
+      footprint.setAttribute("d", pathD);
+      footprint.setAttribute("fill", COLORS.FOOTPRINT_FILL);
+      footprint.setAttribute("stroke", COLORS.FOOTPRINT_STROKE);
+      footprint.setAttribute("stroke-width", "1.5");
+      mapSvg.appendChild(footprint);
+    }
 
     // generate grid
     for (let lat = -75; lat <= 75; lat += 15) {
@@ -96,11 +232,6 @@ export function Map({
       t.textContent = lon.toString();
       mapSvg.appendChild(t);
     }
-
-    const proj = (lat: number, lon: number) => ({
-      x: ((lon + 180) / 360) * w,
-      y: ((90 - lat) / 180) * h,
-    });
 
     const aircraft = proj(acLatitude, acLongitude);
     const ss = proj(0, satLon);
@@ -205,7 +336,13 @@ export function Map({
 
   return (
     <div className="select-none overflow-hidden">
-      <svg id="map" className="rounded" ref={mapSvg}></svg>
+      <svg 
+        id="map" 
+        className="rounded cursor-crosshair" 
+        ref={mapSvg}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+      ></svg>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 type InputMode = "duration" | "headingChange";
 
 interface InputControlsProps {
-  angleOfBank: number;
-  setAngleOfBank: (value: number) => void;
+  maxAngleOfBank: number;
+  setMaxAngleOfBank: (value: number) => void;
+  startingAngleOfBank: number;
+  setStartingAngleOfBank: (value: number) => void;
   turnRate: number;
   setTurnRate: (value: number) => void;
   durationSeconds: number;
@@ -14,8 +16,10 @@ interface InputControlsProps {
 }
 
 export function InputControls({
-  angleOfBank,
-  setAngleOfBank,
+  maxAngleOfBank,
+  setMaxAngleOfBank,
+  startingAngleOfBank,
+  setStartingAngleOfBank,
   turnRate,
   setTurnRate,
   durationSeconds,
@@ -51,31 +55,54 @@ export function InputControls({
         </button>
       </div>
 
-      {/* Input Controls */}
-      <div className="grid grid-cols-3 divide-x divide-gray-600 divide-y -mb-px -mr-px w-full">
-        {/* A/C Angle of Bank */}
+      {/* Input Controls - Row 1 */}
+      <div className="grid grid-cols-4 divide-x divide-gray-600 w-full">
+        {/* Max Angle of Bank */}
         <div className="flex flex-col divide-y divide-gray-600">
           <label
-            className="font-display"
-            htmlFor="angleOfBank"
-            title="Angle of Bank, left is negative, right is positive"
+            className="font-display text-xs px-1"
+            htmlFor="maxAngleOfBank"
+            title="Maximum Angle of Bank, left is negative, right is positive"
           >
-            AOB
+            Max AOB
           </label>
           <input
             type="number"
-            id="angleOfBank"
-            value={angleOfBank}
+            id="maxAngleOfBank"
+            value={maxAngleOfBank}
             min={-60}
             max={60}
             step={1}
-            onChange={(e) => setAngleOfBank(Number(e.target.value))}
+            onChange={(e) => setMaxAngleOfBank(Number(e.target.value))}
           />
         </div>
-        {/* A/C Turn Rate */}
+        {/* Starting Angle of Bank */}
         <div className="flex flex-col divide-y divide-gray-600">
-          <label className="font-display" htmlFor="turnRate">
-            A/C Turn Rate
+          <label
+            className="font-display text-xs px-1"
+            htmlFor="startingAngleOfBank"
+            title="Starting Angle of Bank (initial bank angle)"
+          >
+            Start AOB
+          </label>
+          <input
+            type="number"
+            id="startingAngleOfBank"
+            value={startingAngleOfBank}
+            min={-60}
+            max={60}
+            step={1}
+            onChange={(e) => setStartingAngleOfBank(Number(e.target.value))}
+          />
+        </div>
+        {/* A/C Roll Rate */}
+        <div className="flex flex-col divide-y divide-gray-600">
+          <label 
+            className="font-display text-xs px-1" 
+            htmlFor="turnRate"
+            title="Roll rate in degrees per second"
+          >
+            Roll Rate
           </label>
           <input
             type="number"
@@ -91,7 +118,7 @@ export function InputControls({
         <div className="flex flex-col divide-y divide-gray-600 border-b border-gray-600">
           {inputMode === "duration" ? (
             <>
-              <label className="font-display" htmlFor="durationSeconds">
+              <label className="font-display text-xs px-1" htmlFor="durationSeconds">
                 Duration (s)
               </label>
               <input
@@ -99,15 +126,19 @@ export function InputControls({
                 id="durationSeconds"
                 value={durationSeconds}
                 min={10}
-                max={120}
+                max={300}
                 step={1}
                 onChange={(e) => setDurationSeconds(Number(e.target.value))}
               />
             </>
           ) : (
             <>
-              <label className="font-display" htmlFor="headingChangeDeg" title="Turn direction determined by AOB sign (positive AOB = right turn, negative AOB = left turn)">
-                Heading Change (°)
+              <label 
+                className="font-display text-xs px-1" 
+                htmlFor="headingChangeDeg" 
+                title="Turn direction determined by Max AOB sign (positive = right turn, negative = left turn)"
+              >
+                Hdg Chg (°)
               </label>
               <input
                 type="number"

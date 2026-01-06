@@ -139,7 +139,6 @@ describe("Basic Right Turn", () => {
 
 		const track = simulateTurnToTime(options, 0.5);
 		const midPoint = track[Math.floor(track.length / 2)];
-		const lastPoint = track[track.length - 1];
 
 		// Sum up heading changes to account for wrap-around
 		let totalHeadingChange = 0;

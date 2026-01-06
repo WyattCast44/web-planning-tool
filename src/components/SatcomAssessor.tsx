@@ -69,6 +69,13 @@ export function SatcomAssessor() {
             satLongitude={satLongitude}
             visible={elevDeg > 0}
             acHeading={hdgDegCardinal}
+            onAircraftSelect={(lat, lon) => {
+              setAcLatitude(Math.round(lat * 100) / 100);
+              setAcLongitude(Math.round(lon * 100) / 100);
+            }}
+            onSatelliteSelect={(lon) => {
+              setSatLongitude(Math.round(lon * 100) / 100);
+            }}
           />
         </div>
       </div>

@@ -13,8 +13,8 @@ import { DEFAULT_APP_CONFIG } from "../types";
  * Get app config from window or use default
  */
 function getAppConfig(): AppConfig {
-  if (typeof window !== "undefined" && (window as any).APP_CONFIG) {
-    return (window as any).APP_CONFIG;
+  if (typeof window !== "undefined" && window.APP_CONFIG) {
+    return window.APP_CONFIG;
   }
   return DEFAULT_APP_CONFIG;
 }
@@ -79,13 +79,13 @@ if (typeof window !== "undefined") {
 
   // Update config when window.APP_CONFIG changes
   // This is useful if the config is loaded asynchronously
-  if ((window as any).APP_CONFIG) {
+  if (window.APP_CONFIG) {
     updateConfig();
   } else {
     // If config isn't loaded yet, wait for it
     // The script tag has defer attribute, so it should load before DOMContentLoaded
     const checkInterval = setInterval(() => {
-      if ((window as any).APP_CONFIG) {
+      if (window.APP_CONFIG) {
         updateConfig();
         clearInterval(checkInterval);
       }
@@ -104,9 +104,9 @@ if (typeof window !== "undefined") {
   }
 
   // Support for legacy SENSOR_CONFIG (convert to new format if needed)
-  if ((window as any).SENSOR_CONFIG && !(window as any).APP_CONFIG) {
+  if (window.SENSOR_CONFIG && !window.APP_CONFIG) {
     // Convert legacy config to new format
-    const legacyConfig = (window as any).SENSOR_CONFIG;
+    const legacyConfig = window.SENSOR_CONFIG;
     const convertedConfig: AppConfig = {
       sensors: {
         turret: legacyConfig.turret,
@@ -151,7 +151,7 @@ if (typeof window !== "undefined") {
         cacheSize: 1000,
       },
     };
-    (window as any).APP_CONFIG = convertedConfig;
+    window.APP_CONFIG = convertedConfig;
     updateConfig();
   }
 }

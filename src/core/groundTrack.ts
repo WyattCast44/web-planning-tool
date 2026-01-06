@@ -144,17 +144,6 @@ function normalizeHeading(heading: number): number {
 }
 
 /**
- * Calculate the signed angular difference between two headings.
- * Returns the difference in the range (-180, 180].
- */
-function headingDifference(from: number, to: number): number {
-	let diff = normalizeHeading(to) - normalizeHeading(from);
-	if (diff > 180) diff -= 360;
-	if (diff <= -180) diff += 360;
-	return diff;
-}
-
-/**
  * Calculate turn rate in degrees/second based on bank angle and airspeed
  * turnRate = (1091 * tan(bankAngle)) / ktas
  * Positive = right turn, negative = left turn

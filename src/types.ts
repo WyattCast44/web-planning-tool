@@ -192,29 +192,6 @@ export interface UnitSpec {
   fromFeet: number;
 }
 
-// Default sensor config (legacy, for backward compatibility)
-export const DEFAULT_CONFIG: SensorConfig = {
-  turret: { minAzimuth: -180, maxAzimuth: 180, minDepression: 0, maxDepression: 90 },
-  sensors: [
-    {
-      id: "default-sensor",
-      name: "Default Sensor",
-      cameras: [
-        {
-          id: "eo",
-          name: "EO",
-          type: "visible",
-          lenses: [{ id: "default", name: "Default", hfov: 20, vfov: 15 }],
-          digitalZoom: [1, 2, 4],
-          sensorWidth: 1920,
-          sensorHeight: 1080,
-        },
-      ],
-    },
-  ],
-  defaults: { units: "nmi" },
-};
-
 // Default app config if app-config.js is not loaded
 export const DEFAULT_APP_CONFIG: AppConfig = {
   classification: {

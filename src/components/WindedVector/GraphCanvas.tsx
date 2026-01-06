@@ -22,7 +22,8 @@ type InputMode = "duration" | "headingChange";
 interface GraphCanvasProps {
 	showCourse: boolean;
 	showCompass: boolean;
-	angleOfBank: number;
+	maxAngleOfBank: number;
+	startingAngleOfBank: number;
 	turnRate: number;
 	durationSeconds: number;
 	inputMode: InputMode;
@@ -34,7 +35,8 @@ interface GraphCanvasProps {
 export function GraphCanvas({
 	showCourse,
 	showCompass,
-	angleOfBank,
+	maxAngleOfBank,
+	startingAngleOfBank,
 	turnRate,
 	durationSeconds,
 	inputMode,
@@ -66,8 +68,8 @@ export function GraphCanvas({
 			const baseParams = {
 				ktas: ktas,
 				avgRollRate: turnRate,
-				initialBankAngle: 0, // Start from level flight
-				maxBankAngle: angleOfBank, // Sign determines turn direction
+				initialBankAngle: startingAngleOfBank,
+				maxBankAngle: maxAngleOfBank, // Sign determines turn direction
 				initialHeading: hdgDegCardinal,
 				windDirection: windDegCardinal,
 				windSpeed: windKts,
@@ -87,11 +89,12 @@ export function GraphCanvas({
 				);
 
 				// Calculate opposite turn track if enabled
-				if (showOppositeTurn && angleOfBank !== 0) {
+				if (showOppositeTurn && maxAngleOfBank !== 0) {
 					oppositeTrack = simulateTurnToTime(
 						{
 							...baseParams,
-							maxBankAngle: -angleOfBank, // Opposite direction
+							initialBankAngle: -startingAngleOfBank, // Mirror the starting bank
+							maxBankAngle: -maxAngleOfBank, // Opposite direction
 							durationSeconds: durationSeconds,
 						},
 						0.5
@@ -101,16 +104,16 @@ export function GraphCanvas({
 				// Target-heading mode
 				// For heading change mode, the sign of maxBankAngle determines direction
 				// headingChangeDeg is always positive (the magnitude of the turn)
-				// angleOfBank sign determines left/right turn direction
+				// maxAngleOfBank sign determines left/right turn direction
 				
-				if (angleOfBank === 0) {
+				if (maxAngleOfBank === 0) {
 					// Cannot simulate a turn with 0 bank angle
 					throw new Error("Bank angle cannot be zero for heading change mode");
 				}
 
 				// Calculate target heading based on current heading and desired change
-				// The sign of angleOfBank determines the turn direction
-				const turnDirection = Math.sign(angleOfBank);
+				// The sign of maxAngleOfBank determines the turn direction
+				const turnDirection = Math.sign(maxAngleOfBank);
 				let targetHeading: number;
 				
 				if (turnDirection > 0) {
@@ -141,7 +144,8 @@ export function GraphCanvas({
 					const oppositeResult = simulateTurnToHeading(
 						{
 							...baseParams,
-							maxBankAngle: -angleOfBank,
+							initialBankAngle: -startingAngleOfBank, // Mirror the starting bank
+							maxBankAngle: -maxAngleOfBank,
 							targetHeading: oppositeTargetHeading,
 						},
 						0.5
@@ -171,7 +175,8 @@ export function GraphCanvas({
 		durationSeconds,
 		inputMode,
 		headingChangeDeg,
-		angleOfBank,
+		maxAngleOfBank,
+		startingAngleOfBank,
 		turnRate,
 		ktas,
 		showOppositeTurn,

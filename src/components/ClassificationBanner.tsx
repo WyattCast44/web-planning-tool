@@ -1,5 +1,4 @@
 import { useClassificationConfig } from "../config/store";
-import type { ClassificationLevel } from "../types";
 
 /**
  * Classification Banner Component

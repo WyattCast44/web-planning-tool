@@ -1,163 +1,131 @@
-export function ftToM(ft: number): number {
-    return ft * 0.3048;
+/**
+ * Unit Conversion Utilities
+ * 
+ * Provides conversion functions between common units of length and speed.
+ * Uses centralized conversion factors for consistency.
+ */
+
+// ============================================================================
+// LENGTH CONVERSION FACTORS (to/from feet as base unit)
+// ============================================================================
+
+const LENGTH_FACTORS: Record<string, number> = {
+  ft: 1,
+  m: 3.28084,      // 1 meter = 3.28084 feet
+  nmi: 6076.115,   // 1 nautical mile = 6076.115 feet
+  km: 3280.84,     // 1 kilometer = 3280.84 feet
+  yd: 3,           // 1 yard = 3 feet
+};
+
+// ============================================================================
+// SPEED CONVERSION FACTORS (to/from knots as base unit)
+// ============================================================================
+
+const SPEED_FACTORS: Record<string, number> = {
+  nmihr: 1,           // knots (nautical miles per hour)
+  mph: 1.15078,       // 1 knot = 1.15078 mph
+  ms: 0.514444,       // 1 knot = 0.514444 m/s
+  fpm: 101.2685,      // 1 knot = 101.2685 feet per minute
+  kmh: 1.852,         // 1 knot = 1.852 km/h
+};
+
+// ============================================================================
+// GENERIC CONVERSION FUNCTIONS
+// ============================================================================
+
+/**
+ * Convert a length value from one unit to another
+ */
+export function convertLength(value: number, from: string, to: string): number {
+  if (from === to) return value;
+  const fromFactor = LENGTH_FACTORS[from];
+  const toFactor = LENGTH_FACTORS[to];
+  if (!fromFactor || !toFactor) return value;
+  
+  // Convert to feet, then to target unit
+  const inFeet = value * fromFactor;
+  return inFeet / toFactor;
 }
 
-export function ftToNmi(ft: number): number {
-    return ft * 0.000164579;
+/**
+ * Convert a speed value from one unit to another
+ */
+export function convertSpeed(value: number, from: string, to: string): number {
+  if (from === to) return value;
+  const fromFactor = SPEED_FACTORS[from];
+  const toFactor = SPEED_FACTORS[to];
+  if (!fromFactor || !toFactor) return value;
+  
+  // Convert to knots, then to target unit
+  const inKnots = value / fromFactor;
+  return inKnots * toFactor;
 }
 
-export function ftToKm(ft: number): number {
-    return ft * 0.0003048;
-}
+// ============================================================================
+// LENGTH CONVERSIONS - Individual functions for API compatibility
+// ============================================================================
 
-export function ftToYd(ft: number): number {
-    return ft * 0.333333;
-}
+// From feet
+export const ftToM = (ft: number): number => convertLength(ft, "ft", "m");
+export const ftToNmi = (ft: number): number => convertLength(ft, "ft", "nmi");
+export const ftToKm = (ft: number): number => convertLength(ft, "ft", "km");
+export const ftToYd = (ft: number): number => convertLength(ft, "ft", "yd");
 
-export function mToFt(m: number): number {
-    return m * 3.28084;
-}
+// From meters
+export const mToFt = (m: number): number => convertLength(m, "m", "ft");
+export const mToNmi = (m: number): number => convertLength(m, "m", "nmi");
+export const mToKm = (m: number): number => convertLength(m, "m", "km");
+export const mToYd = (m: number): number => convertLength(m, "m", "yd");
 
-export function mToNmi(m: number): number {
-    return m * 0.000539957;
-}
+// From nautical miles
+export const nmiToFt = (nmi: number): number => convertLength(nmi, "nmi", "ft");
+export const nmiToM = (nmi: number): number => convertLength(nmi, "nmi", "m");
+export const nmiToKm = (nmi: number): number => convertLength(nmi, "nmi", "km");
+export const nmiToYd = (nmi: number): number => convertLength(nmi, "nmi", "yd");
 
-export function mToKm(m: number): number {
-    return m * 0.001;
-}
+// From kilometers
+export const kmToFt = (km: number): number => convertLength(km, "km", "ft");
+export const kmToM = (km: number): number => convertLength(km, "km", "m");
+export const kmToNmi = (km: number): number => convertLength(km, "km", "nmi");
+export const kmToYd = (km: number): number => convertLength(km, "km", "yd");
 
-export function mToYd(m: number): number {
-    return m * 1.09361;
-}
+// From yards
+export const ydToFt = (yd: number): number => convertLength(yd, "yd", "ft");
+export const ydToM = (yd: number): number => convertLength(yd, "yd", "m");
+export const ydToNmi = (yd: number): number => convertLength(yd, "yd", "nmi");
+export const ydToKm = (yd: number): number => convertLength(yd, "yd", "km");
 
-export function nmiToFt(nmi: number): number {
-    return nmi * 6076.115;
-}
+// ============================================================================
+// SPEED CONVERSIONS - Individual functions for API compatibility
+// ============================================================================
 
-export function nmiToM(nmi: number): number {
-    return nmi * 1852;
-}
+// From mph
+export const mphToMs = (mph: number): number => convertSpeed(mph, "mph", "ms");
+export const mphToFpm = (mph: number): number => convertSpeed(mph, "mph", "fpm");
+export const mphToKmh = (mph: number): number => convertSpeed(mph, "mph", "kmh");
+export const mphToNmihr = (mph: number): number => convertSpeed(mph, "mph", "nmihr");
 
-export function nmiToKm(nmi: number): number {
-    return nmi * 1.852;
-}
+// From m/s
+export const msToMph = (ms: number): number => convertSpeed(ms, "ms", "mph");
+export const msToFpm = (ms: number): number => convertSpeed(ms, "ms", "fpm");
+export const msToKmh = (ms: number): number => convertSpeed(ms, "ms", "kmh");
+export const msToNmihr = (ms: number): number => convertSpeed(ms, "ms", "nmihr");
 
-export function nmiToYd(nmi: number): number {
-    return nmi * 2025.372;
-}
+// From feet per minute
+export const fpmToMph = (fpm: number): number => convertSpeed(fpm, "fpm", "mph");
+export const fpmToMs = (fpm: number): number => convertSpeed(fpm, "fpm", "ms");
+export const fpmToKmh = (fpm: number): number => convertSpeed(fpm, "fpm", "kmh");
+export const fpmToNmihr = (fpm: number): number => convertSpeed(fpm, "fpm", "nmihr");
 
-export function kmToFt(km: number): number {
-    return km * 3280.84;
-}
+// From km/h
+export const kmhToMph = (kmh: number): number => convertSpeed(kmh, "kmh", "mph");
+export const kmhToMs = (kmh: number): number => convertSpeed(kmh, "kmh", "ms");
+export const kmhToFpm = (kmh: number): number => convertSpeed(kmh, "kmh", "fpm");
+export const kmhToNmihr = (kmh: number): number => convertSpeed(kmh, "kmh", "nmihr");
 
-export function kmToM(km: number): number {
-    return km * 1000;
-}
-
-export function kmToNmi(km: number): number {
-    return km * 0.539957;
-}
-
-export function kmToYd(km: number): number {
-    return km * 1093.61;
-}
-
-export function ydToFt(yd: number): number {
-    return yd * 3;
-}
-
-export function ydToM(yd: number): number {
-    return yd * 0.9144;
-}
-
-export function ydToNmi(yd: number): number {
-    return yd * 0.000539957;
-}
-
-export function ydToKm(yd: number): number {
-    return yd * 0.0009144;
-}
-
-export function mphToMs(mph: number): number {
-    return mph * 0.44704;
-}
-
-export function mphToFpm(mph: number): number {
-    return mph * 88;
-}
-
-export function mphToKmh(mph: number): number {
-    return mph * 1.60934;
-}
-
-export function mphToNmihr(mph: number): number {
-    return mph * 0.868976;
-}
-
-export function msToMph(ms: number): number {
-    return ms * 2.23694;
-}
-
-export function msToFpm(ms: number): number {
-    return ms * 196.85;
-}
-
-export function msToKmh(ms: number): number {
-    return ms * 3.6;
-}
-
-export function msToNmihr(ms: number): number {
-    return ms * 1.94384;
-}
-
-export function fpmToMph(fpm: number): number {
-    return fpm * 0.0113636;
-}
-
-export function fpmToMs(fpm: number): number {
-    return fpm * 0.00514444;
-}
-
-export function fpmToKmh(fpm: number): number {
-    return fpm * 0.018288;
-}
-
-export function fpmToNmihr(fpm: number): number {
-    return fpm / 101.3;
-}
-
-export function kmhToMph(kmh: number): number {
-    return kmh * 0.621371;
-}
-
-export function kmhToMs(kmh: number): number {
-    return kmh * 0.277778;
-}
-
-export function kmhToFpm(kmh: number): number {
-    return kmh * 54.681;
-}
-
-export function kmhToNmihr(kmh: number): number {
-    return kmh * 0.539957;
-}
-
-export function nmihrToMph(nmihr: number): number {
-    return nmihr * 1.15078;
-}
-
-export function nmihrToMs(nmihr: number): number {
-    return nmihr * 0.514444;
-}
-
-export function nmihrToFpm(nmihr: number): number {
-    return nmihr * 101.2685;
-}
-
-export function nmihrToFtSec(nmihr: number): number {
-    return nmihr * 1.68781;
-}
-
-export function nmihrToKmh(nmihr: number): number {
-    return nmihr * 1.852;
-}
+// From nautical miles per hour (knots)
+export const nmihrToMph = (nmihr: number): number => convertSpeed(nmihr, "nmihr", "mph");
+export const nmihrToMs = (nmihr: number): number => convertSpeed(nmihr, "nmihr", "ms");
+export const nmihrToFpm = (nmihr: number): number => convertSpeed(nmihr, "nmihr", "fpm");
+export const nmihrToKmh = (nmihr: number): number => convertSpeed(nmihr, "nmihr", "kmh");
+export const nmihrToFtSec = (nmihr: number): number => nmihrToFpm(nmihr) / 60;

@@ -1,4 +1,4 @@
-import { degToRad, radToDeg } from "../../core/math";
+import { degToRad } from "../../core/math";
 import type { GeometryResult, FootprintResult, UnitKey, Point2D } from "../../types";
 import { UNITS } from "../../types";
 
@@ -111,18 +111,7 @@ export function calculateGeometry(
   
   const slantRange = Math.sqrt(Math.max(0, slantRangeSq));
 
-  // Depression angle calculation
-  // Use the sine rule to find the angle at the aircraft
-  // sin(angleAtAircraft) / rTarget = sin(centralAngle) / slantRange
-  const sinAngleAtAircraft = (rTarget * Math.sin(centralAngle)) / slantRange;
-  const angleAtAircraft = Math.asin(Math.max(-1, Math.min(1, sinAngleAtAircraft)));
-  
-  // Depression is 90° minus the angle from vertical
-  // The angle from nadir to target = angleAtAircraft
-  // Depression from horizontal = 90° - angleAtAircraft (in a flat earth sense)
-  // But we need to account for earth curvature
-  
-  // More direct approach: depression = atan2(vertical_drop, horizontal_distance)
+  // Depression angle calculation using atan2(vertical_drop, horizontal_distance)
   // where we account for earth curvature in the vertical drop
   // Vertical drop (accounting for curvature): h + (rTarget - rTarget*cos(centralAngle))
   // Horizontal distance: rTarget * sin(centralAngle)

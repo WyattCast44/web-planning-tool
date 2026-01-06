@@ -7,7 +7,8 @@ import { GraphCanvas } from "./WindedVector/GraphCanvas";
 type InputMode = "duration" | "headingChange";
 
 export function WindedVector() {
-	const [angleOfBank, setAngleOfBank] = useState(20);
+	const [maxAngleOfBank, setMaxAngleOfBank] = useState(20);
+	const [startingAngleOfBank, setStartingAngleOfBank] = useState(0);
 	const [turnRate, setTurnRate] = useState(10);
 	const [durationSeconds, setDurationSeconds] = useState(60);
 	const [inputMode, setInputMode] = useState<InputMode>("duration");
@@ -24,8 +25,10 @@ export function WindedVector() {
 			</header>
 
 			<InputControls
-				angleOfBank={angleOfBank}
-				setAngleOfBank={setAngleOfBank}
+				maxAngleOfBank={maxAngleOfBank}
+				setMaxAngleOfBank={setMaxAngleOfBank}
+				startingAngleOfBank={startingAngleOfBank}
+				setStartingAngleOfBank={setStartingAngleOfBank}
 				turnRate={turnRate}
 				setTurnRate={setTurnRate}
 				durationSeconds={durationSeconds}
@@ -40,7 +43,8 @@ export function WindedVector() {
 				<GraphCanvas
 					showCourse={showCourse}
 					showCompass={showCompass}
-					angleOfBank={angleOfBank}
+					maxAngleOfBank={maxAngleOfBank}
+					startingAngleOfBank={startingAngleOfBank}
 					turnRate={turnRate}
 					durationSeconds={durationSeconds}
 					inputMode={inputMode}
@@ -62,4 +66,3 @@ export function WindedVector() {
 		</Panel>
 	);
 }
-
