@@ -138,6 +138,9 @@ if (typeof window !== "undefined") {
         windedVector: {
           enabled: true,
         },
+        airDeconfliction: {
+          enabled: true,
+        }
       },
       performance: {
         canvas: {

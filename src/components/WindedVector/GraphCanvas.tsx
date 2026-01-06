@@ -1,242 +1,303 @@
 import { useRef, useEffect, useState } from "react";
 import { useAppStore } from "../../store";
-import { calculateGroundTrack, type Point } from "../../core/groundTrack";
+import {
+	simulateTurnToTime,
+	simulateTurnToHeading,
+	type TrackPoint,
+	type GroundTrack,
+	type SimulateToHeadingResult,
+} from "../../core/groundTrack";
 import { degCardinalToDegMath } from "../../core/math";
-import { setupCanvas, drawCompassOverlay, drawAircraft, drawGrid, drawCourseLines } from "./CanvasUtils";
+import {
+	setupCanvas,
+	drawCompassOverlay,
+	drawAircraft,
+	drawGrid,
+	drawCourseLines,
+} from "./CanvasUtils";
 import { drawTurnPath } from "./TurnPathRenderer";
 
 type InputMode = "duration" | "headingChange";
 
 interface GraphCanvasProps {
-  showCourse: boolean;
-  showCompass: boolean;
-  angleOfBank: number;
-  turnRate: number;
-  durationSeconds: number;
-  inputMode: InputMode;
-  headingChangeDeg: number;
-  showOppositeTurn: boolean;
-  scale: number;
+	showCourse: boolean;
+	showCompass: boolean;
+	angleOfBank: number;
+	turnRate: number;
+	durationSeconds: number;
+	inputMode: InputMode;
+	headingChangeDeg: number;
+	showOppositeTurn: boolean;
+	scale: number;
 }
 
 export function GraphCanvas({
-  showCourse,
-  showCompass,
-  angleOfBank,
-  turnRate,
-  durationSeconds,
-  inputMode,
-  headingChangeDeg,
-  showOppositeTurn,
-  scale,
+	showCourse,
+	showCompass,
+	angleOfBank,
+	turnRate,
+	durationSeconds,
+	inputMode,
+	headingChangeDeg,
+	showOppositeTurn,
+	scale,
 }: GraphCanvasProps) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const {
-    hdgDegCardinal,
-    gs,
-    courseDegCardinal,
-    windKts,
-    windDegCardinal,
-    ktas,
-    altKft,
-  } = useAppStore();
-  const [points, setPoints] = useState<Point[]>([]);
-  const [oppositePoints, setOppositePoints] = useState<Point[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+	const canvas = useRef<HTMLCanvasElement>(null);
+	const {
+		hdgDegCardinal,
+		gs,
+		courseDegCardinal,
+		windKts,
+		windDegCardinal,
+		ktas,
+	} = useAppStore();
+	const [points, setPoints] = useState<TrackPoint[]>([]);
+	const [oppositePoints, setOppositePoints] = useState<TrackPoint[]>([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
-  // Calculate ground track when parameters change
-  useEffect(() => {
-    setIsLoading(true);
-    setError(null);
+	// Calculate ground track when parameters change
+	useEffect(() => {
+		setIsLoading(true);
+		setError(null);
 
-    try {
-      // Standard gravity at sea level in ft/s²
-      const gravityFtSecS2 = 32.174;
+		try {
+			// Common simulation parameters
+			const baseParams = {
+				ktas: ktas,
+				avgRollRate: turnRate,
+				initialBankAngle: 0, // Start from level flight
+				maxBankAngle: angleOfBank, // Sign determines turn direction
+				initialHeading: hdgDegCardinal,
+				windDirection: windDegCardinal,
+				windSpeed: windKts,
+			};
 
-      // Calculate main track
-      const result = calculateGroundTrack({
-        ktas: ktas,
-        durationSeconds: durationSeconds,
-        rollRateDegSec: turnRate,
-        startingHdgDegCardinal: hdgDegCardinal,
-        startingAngleOfBankDeg: 0, // Start from level flight
-        maxAngleOfBankDeg: angleOfBank,
-        windDegCardinal: windDegCardinal,
-        windSpeedKts: windKts,
-        gravityFtSecS2: gravityFtSecS2,
-        startingPosition: { x: 0, y: 0 }, // Start at origin
-        ...(inputMode === "headingChange" && { headingChangeDeg: headingChangeDeg }),
-      });
+			let mainTrack: GroundTrack;
+			let oppositeTrack: GroundTrack = [];
 
-      setPoints(result);
+			if (inputMode === "duration") {
+				// Fixed-duration mode
+				mainTrack = simulateTurnToTime(
+					{
+						...baseParams,
+						durationSeconds: durationSeconds,
+					},
+					0.5 // Time step of 0.5 seconds for smooth curves
+				);
 
-      // Calculate opposite turn track if enabled
-      if (showOppositeTurn) {
-        const oppositeResult = calculateGroundTrack({
-          ktas: ktas,
-          durationSeconds: durationSeconds,
-          rollRateDegSec: turnRate,
-          startingHdgDegCardinal: hdgDegCardinal,
-          startingAngleOfBankDeg: 0, // Start from level flight
-          maxAngleOfBankDeg: -angleOfBank, // Invert the bank angle
-          windDegCardinal: windDegCardinal,
-          windSpeedKts: windKts,
-          gravityFtSecS2: gravityFtSecS2,
-          startingPosition: { x: 0, y: 0 }, // Start at origin
-          ...(inputMode === "headingChange" && { headingChangeDeg: headingChangeDeg }),
-        });
-        setOppositePoints(oppositeResult);
-      } else {
-        setOppositePoints([]);
-      }
+				// Calculate opposite turn track if enabled
+				if (showOppositeTurn && angleOfBank !== 0) {
+					oppositeTrack = simulateTurnToTime(
+						{
+							...baseParams,
+							maxBankAngle: -angleOfBank, // Opposite direction
+							durationSeconds: durationSeconds,
+						},
+						0.5
+					);
+				}
+			} else {
+				// Target-heading mode
+				// For heading change mode, the sign of maxBankAngle determines direction
+				// headingChangeDeg is always positive (the magnitude of the turn)
+				// angleOfBank sign determines left/right turn direction
+				
+				if (angleOfBank === 0) {
+					// Cannot simulate a turn with 0 bank angle
+					throw new Error("Bank angle cannot be zero for heading change mode");
+				}
 
-      setError(null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unknown error occurred"
-      );
-      setPoints([]);
-      setOppositePoints([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    hdgDegCardinal,
-    gs,
-    courseDegCardinal,
-    windKts,
-    windDegCardinal,
-    durationSeconds,
-    inputMode,
-    headingChangeDeg,
-    angleOfBank,
-    turnRate,
-    ktas,
-    altKft,
-    showOppositeTurn,
-  ]);
+				// Calculate target heading based on current heading and desired change
+				// The sign of angleOfBank determines the turn direction
+				const turnDirection = Math.sign(angleOfBank);
+				let targetHeading: number;
+				
+				if (turnDirection > 0) {
+					// Right turn
+					targetHeading = (hdgDegCardinal + headingChangeDeg) % 360;
+				} else {
+					// Left turn
+					targetHeading = (hdgDegCardinal - headingChangeDeg + 360) % 360;
+				}
 
-  function drawGraph(
-    ctx: CanvasRenderingContext2D,
-    acHeadingDeg: number,
-    showCompass: boolean
-  ) {
-    if (!canvas.current) return;
+				const result: SimulateToHeadingResult = simulateTurnToHeading(
+					{
+						...baseParams,
+						targetHeading: targetHeading,
+					},
+					0.5
+				);
+				mainTrack = result.track;
 
-    const rect = canvas.current.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+				// Calculate opposite turn track if enabled
+				if (showOppositeTurn) {
+					// Opposite direction to reach same heading change magnitude
+					const oppositeTargetHeading =
+						turnDirection > 0
+							? (hdgDegCardinal - headingChangeDeg + 360) % 360
+							: (hdgDegCardinal + headingChangeDeg) % 360;
 
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0, 0, w, h);
+					const oppositeResult = simulateTurnToHeading(
+						{
+							...baseParams,
+							maxBankAngle: -angleOfBank,
+							targetHeading: oppositeTargetHeading,
+						},
+						0.5
+					);
+					oppositeTrack = oppositeResult.track;
+				}
+			}
 
-    // Draw grid and get scaling factors
-    const { scaleX, scaleY } = drawGrid(ctx, w, h, scale);
+			setPoints(mainTrack);
+			setOppositePoints(oppositeTrack);
+			setError(null);
+		} catch (err) {
+			setError(
+				err instanceof Error ? err.message : "Unknown error occurred"
+			);
+			setPoints([]);
+			setOppositePoints([]);
+		} finally {
+			setIsLoading(false);
+		}
+	}, [
+		hdgDegCardinal,
+		gs,
+		courseDegCardinal,
+		windKts,
+		windDegCardinal,
+		durationSeconds,
+		inputMode,
+		headingChangeDeg,
+		angleOfBank,
+		turnRate,
+		ktas,
+		showOppositeTurn,
+	]);
 
-    // Draw aircraft
-    drawAircraft(ctx, w, h, acHeadingDeg);
+	function drawGraph(
+		ctx: CanvasRenderingContext2D,
+		acHeadingDeg: number,
+		showCompass: boolean
+	) {
+		if (!canvas.current) return;
 
-    // Convert heading to math degrees for compass
-    const acHeadingMath = degCardinalToDegMath(acHeadingDeg);
-    const courseDegCardinalMath = degCardinalToDegMath(courseDegCardinal);
+		const rect = canvas.current.getBoundingClientRect();
+		const w = rect.width;
+		const h = rect.height;
 
-    // Draw compass overlay
-    drawCompassOverlay(
-      ctx,
-      w,
-      h,
-      acHeadingMath,
-      showCompass,
-      courseDegCardinalMath
-    );
+		ctx.clearRect(0, 0, w, h);
+		ctx.fillStyle = "rgba(0,0,0,0.5)";
+		ctx.fillRect(0, 0, w, h);
 
-    // Draw course lines
-    drawCourseLines(
-      ctx,
-      w,
-      h,
-      scaleX,
-      scaleY,
-      showCourse,
-      gs,
-      courseDegCardinal,
-      acHeadingMath
-    );
+		// Draw grid and get scaling factors
+		const { scaleX, scaleY } = drawGrid(ctx, w, h, scale);
 
-    // Handle loading and error states
-    if (isLoading) {
-      // Draw loading indicator
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
-      ctx.font = "14px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Calculating turn radius...", w / 2, h / 2);
-      return;
-    }
+		// Draw aircraft
+		drawAircraft(ctx, w, h, acHeadingDeg);
 
-    if (error) {
-      // Draw error message
-      ctx.fillStyle = "rgba(255,0,0,0.8)";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(`Error: ${error}`, w / 2, h / 2);
-      return;
-    }
+		// Convert heading to math degrees for compass
+		const acHeadingMath = degCardinalToDegMath(acHeadingDeg);
+		const courseDegCardinalMath = degCardinalToDegMath(courseDegCardinal);
 
-    if (points.length === 0) {
-      return; // No points to draw
-    }
+		// Draw compass overlay
+		drawCompassOverlay(
+			ctx,
+			w,
+			h,
+			acHeadingMath,
+			showCompass,
+			courseDegCardinalMath
+		);
 
-    // Draw turn paths
-    drawTurnPath(ctx, {
-      points,
-      oppositePoints,
-      showOppositeTurn,
-      scaleX,
-      scaleY,
-      w,
-      h,
-    });
-  }
+		// Draw course lines
+		drawCourseLines(
+			ctx,
+			w,
+			h,
+			scaleX,
+			scaleY,
+			showCourse,
+			gs,
+			courseDegCardinal,
+			acHeadingMath
+		);
 
-  function handleResize() {
-    const ctx = setupCanvas(canvas.current);
-    if (ctx) {
-      drawGraph(ctx, hdgDegCardinal, showCompass);
-    }
-  }
+		// Handle loading and error states
+		if (isLoading) {
+			// Draw loading indicator
+			ctx.fillStyle = "rgba(255,255,255,0.8)";
+			ctx.font = "14px Arial";
+			ctx.textAlign = "center";
+			ctx.fillText("Calculating turn radius...", w / 2, h / 2);
+			return;
+		}
 
-  useEffect(() => {
-    const ctx = setupCanvas(canvas.current);
-    if (ctx) {
-      drawGraph(ctx, hdgDegCardinal, showCompass);
-    }
+		if (error) {
+			// Draw error message
+			ctx.fillStyle = "rgba(255,0,0,0.8)";
+			ctx.font = "12px Arial";
+			ctx.textAlign = "center";
+			ctx.fillText(`Error: ${error}`, w / 2, h / 2);
+			return;
+		}
 
-    window.addEventListener("resize", handleResize);
+		if (points.length === 0) {
+			return; // No points to draw
+		}
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [
-    hdgDegCardinal,
-    showCourse,
-    gs,
-    courseDegCardinal,
-    showCompass,
-    points,
-    isLoading,
-    error,
-    scale,
-  ]);
+		// Draw turn paths
+		drawTurnPath(ctx, {
+			points,
+			oppositePoints,
+			showOppositeTurn,
+			scaleX,
+			scaleY,
+			w,
+			h,
+		});
+	}
 
-  return (
-    <div className="flex items-center justify-center p-3 rounded-md">
-      <canvas
-        id="windedVectorGraph"
-        ref={canvas}
-        className="h-[350px] w-[350px] bg-black/35 border border-gray-600 rounded-md"
-      ></canvas>
-    </div>
-  );
+	function handleResize() {
+		const ctx = setupCanvas(canvas.current);
+		if (ctx) {
+			drawGraph(ctx, hdgDegCardinal, showCompass);
+		}
+	}
+
+	useEffect(() => {
+		const ctx = setupCanvas(canvas.current);
+		if (ctx) {
+			drawGraph(ctx, hdgDegCardinal, showCompass);
+		}
+
+		window.addEventListener("resize", handleResize);
+
+		return () => {
+			window.removeEventListener("resize", handleResize);
+		};
+	}, [
+		hdgDegCardinal,
+		showCourse,
+		gs,
+		courseDegCardinal,
+		showCompass,
+		points,
+		oppositePoints,
+		isLoading,
+		error,
+		scale,
+	]);
+
+	return (
+		<div className="flex items-center justify-center p-3 rounded-md">
+			<canvas
+				id="windedVectorGraph"
+				ref={canvas}
+				className="h-[350px] w-[350px] bg-black/35 border border-gray-600 rounded-md"
+			></canvas>
+		</div>
+	);
 }

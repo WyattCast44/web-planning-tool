@@ -57,6 +57,10 @@ label {
   @apply font-display text-xs py-1.5 text-gray-500 select-none text-center tracking-tight uppercase;
 }
 
+.label {
+  @apply font-display text-xs py-1.5 text-gray-500 select-none text-center tracking-tight uppercase;
+}
+
 .bg-grid {
   background-image: linear-gradient(
     rgba(255, 255, 255, 0.04) 1px,

@@ -1,6 +1,6 @@
 import {
   calculatePointingAttitudeFromAntennaToSatellite,
-} from "../core/math";
+} from "../core/satcom";
 import { ftToM } from "../core/conversions";
 import { Panel } from "./Panel";
 import { useState, useMemo } from "react";

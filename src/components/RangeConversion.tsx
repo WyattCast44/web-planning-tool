@@ -35,9 +35,9 @@ export function RangeConversion() {
   // User inputs
   const [mslOverride, setMslOverride] = useState<string>("");
   const [rangeUnit, setRangeUnit] = useState<UnitKey>("nmi");
-  const [groundRangeInput, setGroundRangeInput] = useState<string>("");
-  const [slantRangeInput, setSlantRangeInput] = useState<string>("");
-  const [depressionInput, setDepressionInput] = useState<string>("");
+  const [groundRangeInput, setGroundRangeInput] = useState<string>("15");
+  const [slantRangeInput, setSlantRangeInput] = useState<string>("30");
+  const [depressionInput, setDepressionInput] = useState<string>("44");
 
   // Derived altitude values
   const altMslFt = useMemo(() => {
@@ -133,7 +133,7 @@ export function RangeConversion() {
 
   return (
     <Panel className="max-w-xl min-w-md mx-auto my-3">
-      <header className="font-display text-center py-1.5 text-sm text-red-500/80 uppercase tracking-tight select-none border-b border-gray-600">
+      <header className="font-display text-center py-1.5 text-sm text-red-500/80 uppercase tracking-tight select-none border-gray-600">
         Range Conversion
       </header>
 

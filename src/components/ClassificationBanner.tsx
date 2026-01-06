@@ -49,7 +49,7 @@ export function ClassificationBanner() {
 
 	return (
 		<div
-			className={`absolute top-0 left-0 right-0 ${color} text-center py-[1px] border-y border-black text-[9px] font-bold tracking-wider leading-none`}
+			className={`absolute select-none top-0 left-0 right-0 ${color} text-center py-[1px] border-y border-black text-[9px] font-bold tracking-wider leading-none`}
 		>
 			{bannerText}
 		</div>

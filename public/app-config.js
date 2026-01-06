@@ -163,6 +163,11 @@ window.APP_CONFIG = {
 		windedVector: {
 			enabled: true,
 		},
+
+		// Air Deconfliction component
+		airDeconfliction: {
+			enabled: true,
+		},
 	},
 
 	// Performance tuning

@@ -23,4 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-public/sensor-config.js
+# run-time-config
+public/app-config.js
+
+# LLM task notepad
+task.md

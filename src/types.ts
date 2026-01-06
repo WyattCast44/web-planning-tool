@@ -104,6 +104,9 @@ export interface FeatureConfig {
   windedVector: {
     enabled: boolean;
   };
+  airDeconfliction: {
+    enabled: boolean;
+  };
 }
 
 export interface PerformanceConfig {
@@ -258,6 +261,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       enabled: true,
     },
     windedVector: {
+      enabled: true,
+    },
+    airDeconfliction: {
       enabled: true,
     },
   },
