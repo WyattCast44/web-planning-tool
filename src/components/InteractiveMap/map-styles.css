@@ -1,0 +1,239 @@
+/**
+ * OpenLayers Style Overrides
+ * 
+ * Custom styling for OpenLayers controls to match the dark theme.
+ * Import this in your main CSS or component.
+ */
+
+/* Scale Line Control */
+.ol-scale-line {
+  background: rgba(17, 24, 39, 0.9) !important;
+  border: 1px solid rgba(75, 85, 99, 0.8) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  bottom: 8px !important;
+  left: auto !important;
+  right: 8px !important;
+}
+
+.ol-scale-line-inner {
+  color: rgba(209, 213, 219, 0.9) !important;
+  border-color: rgba(156, 163, 175, 0.6) !important;
+  font-size: 10px !important;
+  font-family: ui-monospace, monospace !important;
+}
+
+/* Scale Bar (when using bar: true) */
+.ol-scale-bar {
+  background: rgba(17, 24, 39, 0.9) !important;
+  border: 1px solid rgba(75, 85, 99, 0.8) !important;
+  border-radius: 4px !important;
+  bottom: 8px !important;
+  right: 8px !important;
+  left: auto !important;
+}
+
+.ol-scale-bar-inner {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(52, 211, 153, 0.8) 0,
+    rgba(52, 211, 153, 0.8) 50%,
+    rgba(75, 85, 99, 0.8) 50%,
+    rgba(75, 85, 99, 0.8) 100%
+  ) !important;
+}
+
+.ol-scale-text {
+  color: rgba(209, 213, 219, 0.9) !important;
+  font-size: 10px !important;
+  font-family: ui-monospace, monospace !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+.ol-scale-step-text {
+  color: rgba(209, 213, 219, 0.9) !important;
+  font-size: 9px !important;
+  font-family: ui-monospace, monospace !important;
+}
+
+.ol-scale-step-marker {
+  background-color: rgba(156, 163, 175, 0.6) !important;
+}
+
+.ol-scale-singlebar {
+  background-color: rgba(52, 211, 153, 0.8) !important;
+  border: 1px solid rgba(75, 85, 99, 0.8) !important;
+}
+
+/* Attribution */
+.ol-attribution {
+  background: rgba(17, 24, 39, 0.8) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-size: 9px !important;
+  max-width: 300px !important;
+  right: 8px !important;
+  bottom: 28px !important;
+}
+
+.ol-attribution a {
+  color: rgba(147, 197, 253, 0.9) !important;
+}
+
+.ol-attribution button {
+  background: rgba(75, 85, 99, 0.6) !important;
+  color: rgba(209, 213, 219, 0.9) !important;
+}
+
+.ol-attribution.ol-collapsed button {
+  background: rgba(17, 24, 39, 0.9) !important;
+}
+
+/* Hide default zoom controls (we use mouse wheel) */
+.ol-zoom {
+  display: none !important;
+}
+
+/* Rotate control */
+.ol-rotate {
+  display: none !important;
+}
+
+/* Viewport cursor during drawing */
+.ol-viewport.drawing-point {
+  cursor: crosshair !important;
+}
+
+.ol-viewport.drawing-line {
+  cursor: crosshair !important;
+}
+
+.ol-viewport.drawing-polygon {
+  cursor: crosshair !important;
+}
+
+.ol-viewport.drawing-circle {
+  cursor: crosshair !important;
+}
+
+.ol-viewport.drawing-measurement {
+  cursor: crosshair !important;
+}
+
+/* Overlay styling */
+.ol-overlay-container {
+  pointer-events: none;
+}
+
+.ol-overlay-container > * {
+  pointer-events: auto;
+}
+
+/* Custom tooltip overlay */
+.map-tooltip {
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(75, 85, 99, 0.8);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: rgba(209, 213, 219, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.map-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(17, 24, 39, 0.95) transparent transparent transparent;
+}
+
+/* Measurement overlay */
+.measurement-tooltip {
+  background: rgba(251, 146, 60, 0.95);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.measurement-tooltip-static {
+  background: rgba(251, 146, 60, 0.85);
+}
+
+/* Circle drawing overlay */
+.circle-tooltip {
+  background: rgba(168, 85, 247, 0.95);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Area measurement overlay */
+.area-tooltip {
+  background: rgba(52, 211, 153, 0.95);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Feature popup */
+.feature-popup {
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(75, 85, 99, 0.8);
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 150px;
+  max-width: 250px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.feature-popup-title {
+  font-weight: 600;
+  color: rgba(52, 211, 153, 0.9);
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.feature-popup-content {
+  color: rgba(209, 213, 219, 0.9);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.feature-popup-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: rgba(156, 163, 175, 0.8);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+}
+
+.feature-popup-close:hover {
+  color: rgba(209, 213, 219, 0.9);
+}
