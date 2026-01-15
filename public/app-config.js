@@ -1,10 +1,11 @@
 /**
- * APPLICATION CONFIGURATION FILE
+ * APPLICATION CONFIGURATION FILE - UPDATED
  *
  * Place this file in the public directory.
  * Edit the values below to configure the entire application.
  *
  * STRUCTURE:
+ * - classification: Classification banner settings
  * - sensors: Sensor system configuration (turret limits, cameras, lenses)
  * - display: Display preferences (units, themes, formatting)
  * - features: Feature flags and component-specific settings
@@ -13,10 +14,10 @@
 
 window.APP_CONFIG = {
 	// Classification settings
-    classification: {
+	classification: {
 		bannerEnabled: true,
-        level: "U", // "U", "CUI", "S", "TS"
-        sar: false,
+		level: "U", // "U", "CUI", "S", "TS"
+		sar: false,
 		bannerText: "",
 	},
 
@@ -134,52 +135,104 @@ window.APP_CONFIG = {
 
 	// Display preferences
 	display: {
-		// Default units for distance measurements
-		defaultDistanceUnit: "nmi", // "nmi" | "km"
-
-		// Number formatting
+		units: {
+			altitude: "ft",
+			distance: "nm",
+			speed: "kts",
+			angle: "deg",
+		},
+		theme: "dark",
 		decimalPlaces: {
+			coordinates: 6,
+			altitude: 0,
 			distance: 2,
-			speed: 1,
-			angle: 1,
-			altitude: 1,
+			bearing: 1,
 		},
 	},
 
-	// Feature flags and component-specific settings
+	// Feature flags and settings
 	features: {
-		// Sensor Footprint component
 		sensorFootprint: {
 			enabled: true,
 			showNIIRS: true,
 		},
-
-		// Satcom Assessor component
 		satcomAssessor: {
 			enabled: true,
 		},
-
-		// Winded Vector component
 		windedVector: {
 			enabled: true,
 		},
-
-		// Air Deconfliction component
 		airDeconfliction: {
 			enabled: true,
 		},
+
+		// NEW: Interactive Map feature configuration
+		interactiveMap: {
+			enabled: true,
+
+			// Elevation data settings
+			showElevation: true,
+
+			// Default basemap (id from available basemaps)
+			// Options: 'osm', 'osm-humanitarian', 'opentopomap', 'carto-light',
+			//          'carto-dark', 'esri-world-imagery', 'stamen-terrain'
+			defaultBasemap: "osm",
+
+			// Default map center [longitude, latitude] in WGS84
+			defaultCenter: [-115.1398, 36.1699], // Las Vegas, NV
+
+			// Default zoom level (0-19)
+			defaultZoom: 10,
+
+			// Offline/Air-gapped mode settings
+			// When enabled, tiles will be loaded from localTileUrl instead of internet
+			offlineMode: false,
+
+			// Local tile server URL for offline mode
+			// Uses {z}/{x}/{y} placeholders for tile coordinates
+			// Example: "http://localhost:8080/tiles/{z}/{x}/{y}.png"
+			// Set to null to use default online sources
+			localTileUrl: null,
+
+			// Local terrain tile URL for offline elevation data
+			// Example: "http://localhost:8080/terrain/{z}/{x}/{y}.png"
+			localTerrainUrl: null,
+
+			// Custom basemaps (in addition to built-in options)
+			// Each entry should have: id, name, url, attribution, maxZoom
+			customBasemaps: [
+				// Example:
+				// {
+				//   id: "local-osm",
+				//   name: "Local OSM",
+				//   url: "http://localhost:8080/osm/{z}/{x}/{y}.png",
+				//   attribution: "Local tile server",
+				//   maxZoom: 19,
+				//   crossOrigin: "anonymous"
+				// }
+			],
+
+			// Scale bar settings
+			showScaleBar: true,
+			useNauticalMiles: true, // false = kilometers
+
+			// Coordinate display settings
+			showCoordinateDisplay: true,
+			defaultCoordinateFormat: "decimal", // "decimal", "dms", "mgrs"
+
+			// Drawing/measurement settings
+			enableDrawing: true,
+			enableMeasurements: true,
+
+			// Sensor footprint overlay integration
+			enableSensorFootprintOverlay: true,
+		},
 	},
 
-	// Performance tuning
+	// Performance settings
 	performance: {
-		// Canvas rendering
-		canvas: {
-			maxFps: 60,
-			enableAntialiasing: true,
-		},
-
-		// Calculation caching
-		enableCaching: true,
-		cacheSize: 1000,
+		debounceMs: 100,
+		maxHistoryItems: 50,
+		enableAnimations: true,
 	},
 };

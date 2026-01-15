@@ -107,6 +107,32 @@ export interface FeatureConfig {
   airDeconfliction: {
     enabled: boolean;
   };
+  interactiveMap: {
+    enabled:  boolean;
+    showElevation: boolean;
+    defaultBasemap: string;
+    defaultCenter: [number, number];
+    defaultZoom: number;
+    offlineMode: boolean;
+    localTileUrl: string | null;
+    localTerrainUrl: string | null;
+    customBasemaps: {
+      id: string;
+      name: string;
+      url: string;
+      attribution: string;
+      maxZoom: number;
+      crossOrigin: string;
+    }[];
+    // Display settings
+    showScaleBar: true,
+    useNauticalMiles: boolean;
+    showCoordinateDisplay: boolean;
+    defaultCoordinateFormat: "decimal";
+    enableDrawing: boolean;
+    enableMeasurements: boolean;
+    enableSensorFootprintOverlay: boolean;
+  }
 }
 
 export interface PerformanceConfig {
@@ -242,6 +268,24 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     },
     airDeconfliction: {
       enabled: true,
+    },
+    interactiveMap: {
+      enabled: true,
+      showElevation: true,
+      defaultBasemap: "osm",
+      defaultCenter: [-115.1398, 36.1699],
+      defaultZoom: 10,
+      offlineMode: false,
+      localTileUrl: null,
+      localTerrainUrl: null,
+      customBasemaps: [],
+      showScaleBar: true,
+      useNauticalMiles: true,
+      showCoordinateDisplay: true,
+      defaultCoordinateFormat: "decimal",
+      enableDrawing: true,
+      enableMeasurements: true,
+      enableSensorFootprintOverlay: true,
     },
   },
   performance: {

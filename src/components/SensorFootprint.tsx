@@ -36,10 +36,10 @@ export function SensorFootprint() {
   // Local state for sensor-specific settings
   const [groundRange, setGroundRange] = useState(5);
   const [rangeUnit, setRangeUnit] = useState<UnitKey>(
-    displayConfig.defaultDistanceUnit
+    displayConfig?.defaultDistanceUnit || "nmi"
   );
   const [summaryUnit, setSummaryUnit] = useState<UnitKey>(
-    displayConfig.defaultDistanceUnit
+    displayConfig?.defaultDistanceUnit || "nmi"
   );
   const [activeZoom, setActiveZoom] = useState(1);
 
@@ -48,15 +48,15 @@ export function SensorFootprint() {
 
   // Sensor system selection (e.g., MTS-B, BLOS Pod)
   const [activeSensorId, setActiveSensorId] = useState(
-    sensorConfig.sensorSystems[0]?.id || ""
+    sensorConfig.sensorSystems?.[0]?.id || ""
   );
 
   // Get active sensor system
-  const activeSensor = sensorConfig.sensorSystems.find((s) => s.id === activeSensorId);
+  const activeSensor = sensorConfig.sensorSystems?.find((s) => s.id === activeSensorId);
 
   // Camera selection within the active sensor
   const [activeCameraId, setActiveCameraId] = useState(
-    activeSensor?.cameras[0]?.id || ""
+    activeSensor?.cameras?.[0]?.id || ""
   );
 
   // Get cameras for active sensor
@@ -67,7 +67,7 @@ export function SensorFootprint() {
 
   // Lens selection within the active camera
   const [activeLensId, setActiveLensId] = useState(
-    activeCamera?.lenses[0]?.id || ""
+    activeCamera?.lenses?.[0]?.id || ""
   );
 
   // Get lenses for active camera
@@ -101,7 +101,7 @@ export function SensorFootprint() {
   // Handle sensor change - reset camera, lens, and zoom
   const handleSensorChange = (sensorId: string) => {
     setActiveSensorId(sensorId);
-    const newSensor = sensorConfig.sensorSystems.find((s) => s.id === sensorId);
+    const newSensor = sensorConfig.sensorSystems?.find((s) => s.id === sensorId);
     if (newSensor && newSensor.cameras.length > 0) {
       setActiveCameraId(newSensor.cameras[0].id);
       if (newSensor.cameras[0].lenses.length > 0) {
@@ -209,7 +209,7 @@ export function SensorFootprint() {
         rangeUnit={rangeUnit}
         setRangeUnit={setRangeUnit}
         // Sensor selection
-        allSensors={sensorConfig.sensorSystems}
+        allSensors={sensorConfig.sensorSystems || []}
         activeSensorId={activeSensorId}
         setActiveSensorId={handleSensorChange}
         // Camera selection
@@ -252,7 +252,7 @@ export function SensorFootprint() {
           summaryUnit={summaryUnit}
           setSummaryUnit={setSummaryUnit}
           footprints={footprints}
-          niirsResult={featureConfig.sensorFootprint.showNIIRS ? niirsResult : null}
+          niirsResult={featureConfig?.sensorFootprint?.showNIIRS ? niirsResult : null}
         />
       </div>
     </Panel>
