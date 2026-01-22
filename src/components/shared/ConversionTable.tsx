@@ -3,6 +3,7 @@ import { roundWithPadding } from "../../core/math";
 interface ConversionUnit {
   key: string;
   label: string;
+  title?: string;
   value: number;
   setValue: (value: number) => void;
   min?: number;
@@ -32,6 +33,7 @@ export function ConversionTable({ title, units, conversionFunctions }: Conversio
           <label 
             key={`label-${unit.key}`} 
             htmlFor={unit.key}
+            title={unit.title}
             className={`border-r border-t border-gray-600 ${index === 0 ? 'border-l-0' : ''} ${index === units.length - 1 ? 'border-r-0' : ''} border-b border-gray-600 py-1.5`}
           >
             {unit.label}

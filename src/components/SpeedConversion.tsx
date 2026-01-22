@@ -32,11 +32,11 @@ export function SpeedConversion() {
   const [nmihrConversion, setNmihrConversion] = useState(0);
 
   const units = [
-    { key: "mph", label: "MPH", value: mphConversion, setValue: setMphConversion, min: 0, step: 1 },
-    { key: "ms", label: "M/S", value: msConversion, setValue: setMsConversion, min: 0, step: 1 },
-    { key: "fpm", label: "FPM", value: fpmConversion, setValue: setFpmConversion, min: 0, step: 1 },
-    { key: "kmh", label: "Km/hr", value: kmhConversion, setValue: setKmhConversion, min: 0, step: 1 },
-    { key: "nmihr", label: "Nm/hr", value: nmihrConversion, setValue: setNmihrConversion, min: 0, step: 1, className: "rounded-br-md border-r border-b border-gray-600" },
+    { key: "mph", label: "MPH", title: "Miles Per Hour", value: mphConversion, setValue: setMphConversion, min: 0, step: 1 },
+    { key: "ms", label: "M/S", title: "Meters Per Second", value: msConversion, setValue: setMsConversion, min: 0, step: 1 },
+    { key: "fpm", label: "FPM", title: "Feet Per Minute", value: fpmConversion, setValue: setFpmConversion, min: 0, step: 1 },
+    { key: "kmh", label: "Km/hr", title: "Kilometers Per Hour", value: kmhConversion, setValue: setKmhConversion, min: 0, step: 1 },
+    { key: "nmihr", label: "Nm/hr", title: "Nautical Miles Per Hour", value: nmihrConversion, setValue: setNmihrConversion, min: 0, step: 1, className: "rounded-br-md border-r border-b border-gray-600" },
   ];
 
   const conversionFunctions = {
