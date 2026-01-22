@@ -141,24 +141,6 @@ if (typeof window !== "undefined") {
         airDeconfliction: {
           enabled: true,
         },
-        interactiveMap: {
-          enabled: true,
-          showElevation: true,
-          defaultBasemap: "osm",
-          defaultCenter: [-115.1398, 36.1699],
-          defaultZoom: 10,
-          offlineMode: false,
-          localTileUrl: null,
-          localTerrainUrl: null,
-          customBasemaps: [],
-          showScaleBar: true,
-          useNauticalMiles: true,
-          showCoordinateDisplay: true,
-          defaultCoordinateFormat: "decimal",
-          enableDrawing: true,
-          enableMeasurements: true,
-          enableSensorFootprintOverlay: true,
-        },
       },
       performance: {
         canvas: {

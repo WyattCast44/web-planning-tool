@@ -165,68 +165,6 @@ window.APP_CONFIG = {
 		airDeconfliction: {
 			enabled: true,
 		},
-
-		// NEW: Interactive Map feature configuration
-		interactiveMap: {
-			enabled: true,
-
-			// Elevation data settings
-			showElevation: true,
-
-			// Default basemap (id from available basemaps)
-			// Options: 'osm', 'osm-humanitarian', 'opentopomap', 'carto-light',
-			//          'carto-dark', 'esri-world-imagery', 'stamen-terrain'
-			defaultBasemap: "osm",
-
-			// Default map center [longitude, latitude] in WGS84
-			defaultCenter: [-115.1398, 36.1699], // Las Vegas, NV
-
-			// Default zoom level (0-19)
-			defaultZoom: 10,
-
-			// Offline/Air-gapped mode settings
-			// When enabled, tiles will be loaded from localTileUrl instead of internet
-			offlineMode: false,
-
-			// Local tile server URL for offline mode
-			// Uses {z}/{x}/{y} placeholders for tile coordinates
-			// Example: "http://localhost:8080/tiles/{z}/{x}/{y}.png"
-			// Set to null to use default online sources
-			localTileUrl: null,
-
-			// Local terrain tile URL for offline elevation data
-			// Example: "http://localhost:8080/terrain/{z}/{x}/{y}.png"
-			localTerrainUrl: null,
-
-			// Custom basemaps (in addition to built-in options)
-			// Each entry should have: id, name, url, attribution, maxZoom
-			customBasemaps: [
-				// Example:
-				// {
-				//   id: "local-osm",
-				//   name: "Local OSM",
-				//   url: "http://localhost:8080/osm/{z}/{x}/{y}.png",
-				//   attribution: "Local tile server",
-				//   maxZoom: 19,
-				//   crossOrigin: "anonymous"
-				// }
-			],
-
-			// Scale bar settings
-			showScaleBar: true,
-			useNauticalMiles: true, // false = kilometers
-
-			// Coordinate display settings
-			showCoordinateDisplay: true,
-			defaultCoordinateFormat: "decimal", // "decimal", "dms", "mgrs"
-
-			// Drawing/measurement settings
-			enableDrawing: true,
-			enableMeasurements: true,
-
-			// Sensor footprint overlay integration
-			enableSensorFootprintOverlay: true,
-		},
 	},
 
 	// Performance settings

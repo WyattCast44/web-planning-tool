@@ -10,7 +10,6 @@ import { LengthConversion } from "./components/LengthConversion";
 import { ClassificationBanner } from "./components/ClassificationBanner";
 import { CommandPalette } from "./components/CommandPalette";
 import { useFeatureConfig, useClassificationConfig } from "./config/store";
-import { InteractiveMap } from "./components/InteractiveMap";
 
 function App() {
 	const features = useFeatureConfig();
@@ -46,7 +45,6 @@ function App() {
 				<RangeConversion />
 				<LengthConversion />
 				<SpeedConversion />
-				{features.interactiveMap.enabled && <InteractiveMap />}
 			</div>
 			<CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
 		</div>
